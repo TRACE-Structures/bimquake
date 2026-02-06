@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='bimquake',
-    version='0.1.0',
+    version='0.1.2',
     author='Filippo Landi, Giada Bartolini, Áron Friedman, Bence Popovics, Noémi Friedman',
     author_email='filippo.landi@ing.unipi.it, giada.bartolini@strath.ac.uk, friedrron@gmail.com, popbence@sztaki.hun-ren.hu, n.friedman@ilab.sztaki.hu',
     description='Python package for earthquake resilience assessment of masonry buildings, integrating IFC (Industry Foundation Classes) building information models with seismic hazard analysis and structural evaluation.',
@@ -33,3 +33,4 @@ setup(
     ],
 
 )
+
