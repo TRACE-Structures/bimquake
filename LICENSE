@@ -631,7 +631,7 @@ to attach them to the start of each source file to most effectively
 state the exclusion of warranty; and each file should have at least
 the "copyright" line and a pointer to where the full notice is found.
 
-    bimquake is a python package for earthquake resilience assessment of buildings, integrating IFC (Industry Foundation Classes) building information models with seismic hazard analysis and structural evaluation.
+    bimquake is a python package for earthquake resilience assessment of masonry buildings, integrating IFC (Industry Foundation Classes) building information models with seismic hazard analysis and structural evaluation.
     Copyright (C) 2026  Filippo Landi, Giada Bartolini, Áron Friedman, Bence Popovics, Noémi Friedman
 
     This program is free software: you can redistribute it and/or modify
