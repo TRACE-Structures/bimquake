@@ -446,7 +446,7 @@ def _get_ParaTR(longitude, latitude, hazard_data):
         ParaTR[i,2] = si.griddata(hazard_data[:,:2], hazard_data[:,1+(i)*3+3], coordinates)
     return ParaTR
 
-def _triterazioneapp2_solotreparam(ParaTR, Tr, Trmax=2475, table=None):
+def _iterate_return_periods_hazard_params(ParaTR, Tr, Trmax=2475, table=None):
     """ Interpolate hazard parameters for a specific return period.
     
         Parameters
@@ -654,7 +654,7 @@ def _get_ADRS(TC, Parameters, S_geo):
         ADRS[i,0]=(Ty**2)*ADRS[i,1]*9.81/(4*(np.pi**2))*1000
     return ADRS, tstep
 
-def _compute_paretisingole_figapp(D,S,V,G,N,NZ,alpha,hTOT,alt,Parameters,q,S_geo):
+def _compute_walls_safety_factors(D,S,V,G,N,NZ,alpha,hTOT,alt,Parameters,q,S_geo):
     """ Compute pushover analysis results for structural walls.
 
         Parameters
@@ -870,13 +870,13 @@ def run_linear_static_analysis(xlsx, ParaTR, soil_category, topographic_category
 
     _, TrSLV = _get_Vr_and_Tr(service_life, importance_class)
     ParaTR = ParaTR.values[:, 1:]
-    Parametri = _triterazioneapp2_solotreparam(ParaTR, TrSLV)
+    Parametri = _iterate_return_periods_hazard_params(ParaTR, TrSLV)
     S_Sgeo, _ = _get_Sgeo_and_Cc(soil_category, Parametri)
     S_t = _get_S_t(topographic_category)
 
     S_geo=S_t*S_Sgeo
 
-    IR_fess_X, IR_fess_Y, IR_pf_X, IR_pf_Y, IR_pf_ort_X, IR_pf_ort_Y = _compute_paretisingole_figapp(D,S,V,G,N,NZ,alpha,hTOT,alt,Parametri,q,S_geo)
+    IR_fess_X, IR_fess_Y, IR_pf_X, IR_pf_Y, IR_pf_ort_X, IR_pf_ort_Y = _compute_walls_safety_factors(D,S,V,G,N,NZ,alpha,hTOT,alt,Parametri,q,S_geo)
     return IR_fess_X, IR_fess_Y, IR_pf_X, IR_pf_Y, IR_pf_ort_X, IR_pf_ort_Y
 
 def _calculate_global_boundaries(center_coordinates, dimensions):
@@ -1313,7 +1313,7 @@ def get_pushover_dataframe(x_coordinates, dxstar_t, Tr, ag_Tr, IR):
     columns = ['Direction', 'Safety Index', 'PGA_C', 'TR', 'δ', 'd* (t)']
     return pd.DataFrame(values, columns=columns)
 
-def _compute_IR_deltau_7_fig3app(D,X,S,V,G,deltau,N,NZ,Masses,alt_s,red_F,ADRS,inc,deltared,n_floors,alpha,passo,Parameters,ParaTR,tstep,S_geo,TC,terreno,algorithm):
+def _compute_global_vulnerability(D,X,S,V,G,deltau,N,NZ,Masses,alt_s,red_F,ADRS,inc,deltared,n_floors,alpha,passo,Parameters,ParaTR,tstep,S_geo,TC,terreno,algorithm):
     """ Compute various structural properties and parameters for the building model.
     
         Parameters
@@ -2125,8 +2125,8 @@ def _get_data_for_plot_2(ADRS, Parameters, Masses, vr_ult_TOT, Hult_TOT, delta_u
         Sda.append(Sda_x)
         dxstars.append(dxstar_t)
 
-    Tr_x, ag_x_TR, ADRS_x_TR, Sda_x_TR, Saa_x_TR = _triterazioneapp2(MTOT,Hult_eq[0],S_geo,delta_ult_eq[0],k_el_TOT[0],tstep,ParaTR,soil_category)
-    Tr_y, ag_y_TR, ADRS_y_TR, Sda_y_TR, Saa_y_TR = _triterazioneapp2(MTOT,Hult_eq[1],S_geo,delta_ult_eq[1],k_el_TOT[1],tstep,ParaTR,soil_category)
+    Tr_x, ag_x_TR, ADRS_x_TR, Sda_x_TR, Saa_x_TR = _iterate_return_periods_ADRS(MTOT,Hult_eq[0],S_geo,delta_ult_eq[0],k_el_TOT[0],tstep,ParaTR,soil_category)
+    Tr_y, ag_y_TR, ADRS_y_TR, Sda_y_TR, Saa_y_TR = _iterate_return_periods_ADRS(MTOT,Hult_eq[1],S_geo,delta_ult_eq[1],k_el_TOT[1],tstep,ParaTR,soil_category)
     Tr = [Tr_x, Tr_y]
     ADRS_TR = [ADRS_x_TR, ADRS_y_TR]
     Sda_TR = [Sda_x_TR, Sda_y_TR]
@@ -2140,7 +2140,7 @@ def _get_data_for_plot_2(ADRS, Parameters, Masses, vr_ult_TOT, Hult_TOT, delta_u
 
     return Saa, Sda, delta_ult_eq, S_eq, dxstars, Tr, IR, ADRS_TR, Sda_TR, Saa_TR, ag_TR
 
-def _triterazioneapp2(Masse,F_x_eq,S_geo,delta_x_eq,kel_x,tstep,ParaTR,soil_category):
+def _iterate_return_periods_ADRS(Masse,F_x_eq,S_geo,delta_x_eq,kel_x,tstep,ParaTR,soil_category):
     """ Helper function to perform TR method iteration for seismic response spectrum.
     
         Parameters
@@ -2197,7 +2197,7 @@ def _triterazioneapp2(Masse,F_x_eq,S_geo,delta_x_eq,kel_x,tstep,ParaTR,soil_cate
     for i in range(n):
 
         Tr=years[i]
-        Parametri0 = _triterazioneapp2_solotreparam(ParaTR, Tr)
+        Parametri0 = _iterate_return_periods_hazard_params(ParaTR, Tr)
 
         if Parametri0 is None:
             print(i)
@@ -2254,7 +2254,7 @@ def _triterazioneapp2(Masse,F_x_eq,S_geo,delta_x_eq,kel_x,tstep,ParaTR,soil_cate
     Tr_x=pos+3
     Tr=Tr_x
 
-    Parametri0 = _triterazioneapp2_solotreparam(ParaTR, Tr)
+    Parametri0 = _iterate_return_periods_hazard_params(ParaTR, Tr)
     TD=Parametri0[0]/9.81*4+1.6
 
     match soil_category:
@@ -2679,7 +2679,7 @@ def pushover_analysis_calculation(xlsx, ParaTR, soil_category, topographic_categ
     #----------- Precalculations -----------------#
     _, TrSLV = _get_Vr_and_Tr(service_life, importance_class)
     ParaTR = ParaTR.values[:, 1:]
-    Parametri = _triterazioneapp2_solotreparam(ParaTR, TrSLV)
+    Parametri = _iterate_return_periods_hazard_params(ParaTR, TrSLV)
     S_Sgeo, Cc = _get_Sgeo_and_Cc(soil_category, Parametri)
     S_t = _get_S_t(topographic_category)
 
@@ -2692,7 +2692,7 @@ def pushover_analysis_calculation(xlsx, ParaTR, soil_category, topographic_categ
     incr = 1.001
     deltared=0.2
 
-    kult_TOT, Hult_TOT, vr_ult_TOT, L = _compute_IR_deltau_7_fig3app(D,X,S,V,G,current_data,n_floors,NZ,Masse,alt_s,red_F,ADRS,incr,deltared,piani,alpha,passo,Parametri,ParaTR,tstep,S_geo,TC,soil_category,'add')
+    kult_TOT, Hult_TOT, vr_ult_TOT, L = _compute_global_vulnerability(D,X,S,V,G,current_data,n_floors,NZ,Masse,alt_s,red_F,ADRS,incr,deltared,piani,alpha,passo,Parametri,ParaTR,tstep,S_geo,TC,soil_category,'add')
     
     x_coordinates, y_coordinates = _calculate_bilinears(vr_ult_TOT, Hult_TOT)
     Saa, Sda, delta_ult_eq, S_eq, dxstar_t, Tr, IR, ADRS_TR, Sda_TR, Saa_TR, ag_Tr = _get_data_for_plot_2(ADRS, Parametri, Masse, vr_ult_TOT, Hult_TOT, x_coordinates, y_coordinates, kult_TOT, tstep, S_geo, TC, ParaTR, soil_category)
@@ -2872,4 +2872,5 @@ def global_pushover_plot(vr_ult_TOT, Hult_TOT, ADRS, Sda, Saa, delta_ult_eq, S_e
     fig1 = _plot_bilinear(vr_ult_TOT, Hult_TOT)
     fig2 = _plot_ADRS(ADRS, Sda, Saa, delta_ult_eq, S_eq, dxstar_t, Tr, IR, ADRS_TR, Sda_TR, Saa_TR)
     figures = [fig1, fig2]
+
     return figures
