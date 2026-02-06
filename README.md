@@ -1,5 +1,7 @@
 # bimquake
 
+[![DOI](https://zenodo.org/badge/1113759166.svg)](https://doi.org/10.5281/zenodo.18510523)
+
 A Python package for earthquake resilience assessment of masonry buildings, integrating IFC (Industry Foundation Classes) building information models with seismic hazard analysis and structural evaluation.
 
 - Website: [https://buildchain.ilab.sztaki.hu/](https://buildchain.ilab.sztaki.hu/)
