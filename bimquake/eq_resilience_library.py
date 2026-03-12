@@ -1259,10 +1259,8 @@ def get_linear_dataframes(direction, IR_fess_X, IR_fess_Y, IR_pf_X, IR_pf_Y, IR_
             DataFrame containing the linear analysis results for the specified floor and direction. """
     
     n = len(IR_fess_X)
-
+    floor_idx = int(n-chosen_floor)
     if direction == 'X':
-        floor_idx = int(n/2-chosen_floor)
-
         values = np.concatenate((IR_fess_X[floor_idx][:, 0].reshape(-1, 1).astype(np.int64) +1, IR_fess_X[floor_idx][:, 1].reshape(-1, 1), IR_pf_X[floor_idx][:, 1].reshape(-1, 1), IR_pf_ort_X[floor_idx][:, 1].reshape(-1, 1)), axis=1)
         columns = ['Wall ID', 'Shear', 'Bending in plane', 'Bending out of plane']
         values = np.round(values, 2)
@@ -1271,8 +1269,6 @@ def get_linear_dataframes(direction, IR_fess_X, IR_fess_Y, IR_pf_X, IR_pf_Y, IR_
         return dataframe
     
     else:
-        floor_idx = int(n-chosen_floor)
-
         values = np.concatenate((IR_fess_Y[floor_idx][:, 0].reshape(-1, 1).astype(np.int64), IR_fess_Y[floor_idx][:, 1].reshape(-1, 1), IR_pf_Y[floor_idx][:, 1].reshape(-1, 1), IR_pf_ort_Y[floor_idx][:, 1].reshape(-1, 1)), axis=1)
         columns = ['Wall ID', 'Shear', 'Bending in plane', 'Bending out of plane']
         values = np.round(values, 2)
