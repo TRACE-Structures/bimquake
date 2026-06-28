@@ -2,9 +2,9 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-exclude = ["demo*"]
-
 [project]
 name = "bimquake"
-dynamic = ["version"]
+version = "0.1.8"
+
+[tool.setuptools.packages.find]
+exclude = ["demo*"]
