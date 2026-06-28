@@ -1,10 +1,43 @@
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
-
+ 
 [project]
 name = "bimquake"
 version = "0.1.9"
-
+description = "Python package for earthquake resilience assessment of masonry buildings, integrating IFC (Industry Foundation Classes) building information models with seismic hazard analysis and structural evaluation."
+readme = "README.md"
+license = {text = "GPL-3.0-only"}
+license-files = ["LICENSE"]
+authors = [
+    {name = "Filippo Landi", email = "filippo.landi@ing.unipi.it"},
+    {name = "Giada Bartolini", email = "giada.bartolini@strath.ac.uk"},
+    {name = "Áron Friedman", email = "friedrron@gmail.com"},
+    {name = "Bence Popovics", email = "popbence@sztaki.hun-ren.hu"},
+    {name = "Noémi Friedman", email = "n.friedman@ilab.sztaki.hu"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy==1.26.4",
+    "scikit-learn",
+    "scipy",
+    "pandas==2.2.3",
+    "matplotlib",
+    "reverse_geocoder",
+    "folium",
+    "shapely",
+    "ifcopenshell",
+    "plotly",
+    "openpyxl",
+    "nbformat",
+]
+ 
 [tool.setuptools.packages.find]
 exclude = ["demo*"]
+ 
+[tool.setuptools.package-data]
+"bimquake.hazard_data" = ["*.json", "*.mat"]
