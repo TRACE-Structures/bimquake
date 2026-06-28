@@ -8,6 +8,3 @@ exclude = ["demo*"]
 [project]
 name = "bimquake"
 dynamic = ["version"]
-
-[tool.setuptools.dynamic]
-version = {attr = "bimquake.__version__"}
