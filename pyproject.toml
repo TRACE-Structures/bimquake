@@ -4,3 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 exclude = ["demo*"]
+
+[project]
+name = "bimquake"
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "bimquake.__version__"}
