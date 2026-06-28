@@ -7,8 +7,7 @@ name = "bimquake"
 version = "0.1.10"
 description = "Python package for earthquake resilience assessment of masonry buildings, integrating IFC (Industry Foundation Classes) building information models with seismic hazard analysis and structural evaluation."
 readme = "README.md"
-license = {text = "GPL-3.0-only"}
-license-files = ["LICENSE"]
+license = "GPL-3.0-only"
 authors = [
     {name = "Filippo Landi", email = "filippo.landi@ing.unipi.it"},
     {name = "Giada Bartolini", email = "giada.bartolini@strath.ac.uk"},
