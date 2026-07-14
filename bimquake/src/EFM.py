@@ -4,6 +4,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 import re
+from datetime import datetime, timezone
 from os import error
 from .seismic_loading import  get_seismic_loading
 from .location_to_seismic_loading import get_Parameters
@@ -110,6 +111,136 @@ def create_equivalent_frame_model_from_dataframes(
     return eq_frame
 
 
+
+
+def create_jsonld_from_equivalent_frame_model(efm: 'EquivalentFrameModel', title: str = "EFM model") -> dict:
+    """
+    Serialize an EquivalentFrameModel into a JSON-LD document, capturing the
+    same information as create_equivalent_frame_model_from_dataframes (floors,
+    walls, material/geometry/stress properties) plus the model's location.
+    """
+    floors_jsonld = []
+    for floor in efm.floors:
+        walls_jsonld = []
+        for wall in floor.walls:
+            walls_jsonld.append({
+                "@type": "dkg:FrameElement",
+                "@id": wall.global_id,
+                "dkg:wallId": wall.id,
+                "dkg:floor": wall.floor,
+                "dkg:material": {
+                    "dkg:E": wall.material.E,
+                    "dkg:G": wall.material.G,
+                    "dkg:tau": wall.material.tau,
+                    "dkg:f_m": wall.material.f_m,
+                    "dkg:gamma": wall.material.gamma,
+                    "dkg:nu": wall.material.nu,
+                    "dkg:mu": wall.material.mu,
+                    "dkg:f_u": wall.material.f_u,
+                },
+                "dkg:geometry": {
+                    "dkg:L": wall.geometry.L,
+                    "dkg:w": wall.geometry.w,
+                    "dkg:h": wall.geometry.h,
+                    "dkg:Cx": wall.geometry.Cx,
+                    "dkg:Cy": wall.geometry.Cy,
+                    "dkg:alpha": wall.geometry.alpha,
+                },
+                "dkg:stress": {
+                    "dkg:top": wall.stress.top,
+                    "dkg:midheight": wall.stress.midheight,
+                },
+            })
+
+        floors_jsonld.append({
+            "@type": "dkg:Floor",
+            "@id": f"floor:{floor.id}",
+            "dkg:floorId": floor.id,
+            "dkg:height": floor.height,
+            "dkg:weight": floor.weight,
+            "dkg:hasWall": walls_jsonld,
+        })
+
+    jsonld = {
+        "@context": {
+            "schema": "https://schema.org/",
+            "dcterms": "http://purl.org/dc/terms/",
+            "dkg": "https://ontology.origintrail.io/dkg/1.0#",
+            "prov": "http://www.w3.org/ns/prov#",
+        },
+        "@type": "schema:Dataset",
+        "schema:name": "EFM model",
+        "dcterms:title": title,
+        "dcterms:created": datetime.now(timezone.utc).isoformat(),
+        "dkg:latitude": efm.latitude,
+        "dkg:longitude": efm.longitude,
+        "dkg:hasFloor": floors_jsonld,
+        "prov:wasGeneratedBy": {
+            "@type": "prov:Activity",
+            "schema:name": "Trace Structures API",
+            "schema:url": "https://buildchain.ilab.sztaki.hu/",
+        },
+    }
+    return jsonld
+
+
+def create_equivalent_frame_model_from_jsonld(jsonld: dict) -> 'EquivalentFrameModel':
+    """
+    Reconstruct an EquivalentFrameModel from a JSON-LD document produced by
+    create_jsonld_from_equivalent_frame_model.
+    """
+    efm = EquivalentFrameModel()
+    efm.latitude = jsonld.get("dkg:latitude")
+    efm.longitude = jsonld.get("dkg:longitude")
+
+    for floor_data in jsonld.get("dkg:hasFloor", []):
+        floor = Floor(
+            id=floor_data["dkg:floorId"],
+            height=floor_data["dkg:height"],
+            weight=floor_data["dkg:weight"],
+        )
+
+        for wall_data in floor_data.get("dkg:hasWall", []):
+            mat = wall_data["dkg:material"]
+            geo = wall_data["dkg:geometry"]
+            stress_data = wall_data["dkg:stress"]
+
+            material = MaterialProperties(
+                E=mat["dkg:E"],
+                G=mat["dkg:G"],
+                tau=mat["dkg:tau"],
+                f_m=mat["dkg:f_m"],
+                gamma=mat["dkg:gamma"],
+                nu=mat.get("dkg:nu"),
+                mu=mat.get("dkg:mu"),
+                f_u=mat.get("dkg:f_u"),
+            )
+            geometry = GeometricProperties(
+                L=geo["dkg:L"],
+                w=geo["dkg:w"],
+                h=geo["dkg:h"],
+                Cx=geo["dkg:Cx"],
+                Cy=geo["dkg:Cy"],
+                alpha=geo["dkg:alpha"],
+            )
+            stress = StressState(
+                top=stress_data.get("dkg:top", {}),
+                midheight=stress_data.get("dkg:midheight", {}),
+            )
+
+            wall = FrameElement(
+                id=wall_data["dkg:wallId"],
+                global_id=wall_data["@id"],
+                floor=wall_data["dkg:floor"],
+                material=material,
+                geometry=geometry,
+                stress=stress,
+            )
+            floor.add_wall(wall)
+
+        efm.floors.append(floor)
+
+    return efm
 
 
 class EquivalentFrameModel:
