@@ -192,6 +192,13 @@ class Floor:
         title = f'Shear Walls - Floor {floor_id + 1}'
         return plot_colored_layout(wall_props, color, hoover_text, bounds, title=title)
 
+    def plot_wall_type_layout(self, bounds, wall_type):
+        wall_props = self.walls_geometric_properties
+        color = np.where(wall_type == 1,"#ff6600", "#00649e")
+        hoover_text = np.where(wall_type == 1, "masonry wall", "stone wall")
+        floor_id = self.id
+        title = f'Wall types - Floor {floor_id + 1}'
+        return plot_colored_layout(wall_props, color, hoover_text, bounds, title=title)
     
     def plot_failing_walls(self, bounds, failing_walls, direction):
         wall_props = self.walls_geometric_properties

@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from os import error
 from .seismic_loading import  get_seismic_loading
 from .location_to_seismic_loading import get_Parameters
+import scipy.linalg as la
+
 
 from .pushover_utils import (
     get_force_displacement_diagram,
@@ -611,6 +613,138 @@ class EquivalentFrameModel:
             bounds
         )
         return fig
+
+      def plot_wall_type_layout(self, floor_num, indices):
+        """Plot the basic structural wall layout for a specific floor using Plotly."""
+        bounds = self._plot_bounds
+        # floor_num is 1-indexed, so floor_idx = floor_num - 1
+        fig = self.floors[floor_num].plot_wall_type_layout(
+            bounds, indices
+        )
+        return fig
+      
+
+      def calculate_eigenfrequencies(self):
+        """ Calculate eigenfrequencies and eigenvectors for the building model.
+
+            Parameters
+            ----------
+            D : list of np.ndarray
+                List of wall dimensions for each floor.
+                
+            X : list of np.ndarray
+                List of wall center coordinates for each floor.
+                
+            S : list of np.ndarray
+                List of wall strengths for each floor.
+                
+            V : list of np.ndarray
+                List of wall volumes for each floor.
+                
+            G : list of np.ndarray
+                List of wall material properties for each floor.
+                
+            N : int
+                Number of floors.
+                
+            NZ : list of int
+                List of number of walls per floor.
+                
+            Masses : np.ndarray
+                Array of masses for each floor.
+                
+            alpha : list of np.ndarray
+                List of wall orientations for each floor.
+                
+            Returns
+            -------
+            eigenvalues_X : np.ndarray
+                Eigenvalues for X direction.
+                
+            eigenvectors_X : np.ndarray
+                Eigenvectors for X direction.
+                
+            eigenvalues_Y : np.ndarray
+                Eigenvalues for Y direction.
+                
+            eigenvectors_Y : np.ndarray
+                Eigenvectors for Y direction. """
+            
+        D, _, _, V, alpha, G, NZ = self.get_wall_data()
+        N, _, _, _, _, Masses, _ = self.get_floor_data()
+
+            
+        # Initialize main floor(storey) properties (center of mass, center of rigidity) 
+        KXel=np.zeros(N) #Rigidezza Totale Elastica X
+        KYel=np.zeros(N) #Rigidezza Totale Elastica Y
+        K = []
+
+        for j in range(N):
+            D0=D[j] #;%Dimensioni Pareti di Piano
+            alpha0=alpha[j]
+            Gvar1=G[j]
+            V0=V[j]
+
+            #Stifness of the walls
+            K0=np.zeros((NZ[j],2))
+            for i in range(NZ[j]):
+                Gvar0 = Gvar1[i,2]/Gvar1[i,0]
+                theta=alpha0[i]*np.pi/180
+                K0[i,0]=Gvar1[i,0]*D0[i,0]*D0[i,1]/(1.2*V0[i]*(1+1/(1.2*Gvar0)*(V0[i]/D0[i,0])**2))*np.cos(theta)**2
+                K0[i,1]=Gvar1[i,0]*D0[i,0]*D0[i,1]/(1.2*V0[i]*(1+1/(1.2*Gvar0)*(V0[i]/D0[i,0])**2))*np.sin(theta)**2 
+
+            K.append(K0)
+            KXel[j]=np.sum(K0[:,0])
+            KYel[j]=np.sum(K0[:,1])
+        
+        M = 10**3*np.diag(np.flip(Masses))
+        damp=0.05
+
+        if N == 1:
+            frequencies_X_damp = ((KXel * 10**4 / M)**0.5) * (1 - damp**2)**0.5 / (2 * np.pi)
+            frequencies_Y_damp = ((KYel * 10**4 / M)**0.5) * (1 - damp**2)**0.5 / (2 * np.pi)
+
+        elif N > 1:
+            KX_mat = np.zeros((N, N))
+            KY_mat = np.zeros((N, N))
+            for i in range(N):
+                if i == 0:
+                    KX_mat[i, i] = KXel[i] + KXel[i+1]
+                    KY_mat[i, i] = KYel[i] + KYel[i+1]
+                elif i == N-1:
+                    KX_mat[i, i] = KXel[i]
+                    KY_mat[i, i] = KYel[i]
+                    KX_mat[i, i-1] = -KXel[i]
+                    KY_mat[i, i-1] = -KYel[i]
+                else:
+                    KX_mat[i, i] = KXel[i] + KXel[i+1]
+                    KY_mat[i, i] = KYel[i] + KYel[i+1]
+                    KX_mat[i, i-1] = -KXel[i]
+                    KY_mat[i, i-1] = -KYel[i]
+                if i < N-1:
+                    KX_mat[i, i+1] = -KXel[i+1]
+                    KY_mat[i, i+1] = -KYel[i+1]
+
+            KX_mat = 10**4 * KX_mat
+            KY_mat = 10**4 * KY_mat
+
+            eigenvalues_X, _ = la.eig(KX_mat, M)
+            eigenvalues_Y, _ = la.eig(KY_mat, M)
+
+            eigenvalues_X = np.diag(eigenvalues_X.real)
+            eigenvalues_Y = np.diag(eigenvalues_Y.real)
+
+            eigenvalues_X = np.diag(eigenvalues_X)
+            eigenvalues_Y = np.diag(eigenvalues_Y)
+
+            frequencies_Y = np.sqrt(eigenvalues_Y)/(2*np.pi)
+            frequencies_X = np.sqrt(eigenvalues_X)/(2*np.pi)
+
+            frequencies_Y_damp = frequencies_Y*(1-damp**2)**0.5
+            frequencies_X_damp = frequencies_X*(1-damp**2)**0.5
+
+        return [frequencies_X_damp, frequencies_Y_damp]
+
  
 #--------------------------------------------------------------------------
 #  Display
