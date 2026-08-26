@@ -1,4 +1,4 @@
-![Logo](https://raw.githubusercontent.com/TRACE-Structures/bimquake/main/docs/bimquake_logo.png)
+![Logo](https://raw.githubusercontent.com/TRACE-Structures/bimquake/main/bimquake_logo.png)
 
 # bimquake
 
