@@ -94,8 +94,18 @@ def get_force_displacement_diagram(D,X,S,V,G,
             
         Returns
         -------
-        Various computed structural properties and parameters. """
-    
+        k_ult_TOT : tuple
+            Tuple containing ultimate stiffness values in x and y directions.
+        
+        Hult_TOT : tuple
+            Tuple containing ultimate horizontal force values in x and y directions.
+
+        vr_ult_TOT : tuple
+            Tuple containing ultimate displacement values in x and y directions.
+
+        L : np.ndarray
+            Array containing information about collapsed walls."""
+
     MTOT=np.sum(Masses)
     
     # Initialize main floor(storey) properties (center of mass, center of rigidity) 
@@ -705,79 +715,34 @@ def compute_seismic_performance_assesment(design_params, Masses, v, H, K, delta_
 
         Parameters
         ----------
-        ADRS : np.ndarray
-            Array of acceleration-displacement response spectrum values.
-            
-        Parameters : list of float
-            List of seismic parameters.
+        design_params : dict
+            Dictionary containing design parameters and seismic data.
             
         Masses : np.ndarray
             Array of masses for each floor.
-            
-        vr_ult_TOT : list of np.ndarray
-            List of ultimate displacements for X and Y directions.
-            
-        Hult_TOT : list of np.ndarray
-            List of ultimate base shear forces for X and Y directions.
-            
+
+        v : list of np.ndarray
+            List of displacements for X and Y directions.
+
+        H : list of np.ndarray
+            List of base shear forces for X and Y directions.
+
+        K : list of np.ndarray
+            List of stiffness values for X and Y directions.
+
         delta_ult_eq : list of np.ndarray
             List of ultimate equivalent displacements for X and Y directions.
-            
+
         Hult_eq : list of np.ndarray
             List of ultimate equivalent base shear forces for X and Y directions.
-            
-        kult_TOT : list of np.ndarray
-            List of ultimate stiffness values for X and Y directions.
-            
-        tstep : np.ndarray
-            Array of time steps.
-        
-        S_geo : float
-            Geotechnical site factor.
-            
-        TC : float
-            Characteristic period.
-            
-        ParaTR : pandas.DataFrame
-            Parameters for the TR method.
-            
+
         soil_category : str
             Soil category for the analysis.
             
         Returns
         -------
-        Saa : list of np.ndarray
-            List of spectral acceleration values for X and Y directions.
-
-        Sda : list of np.ndarray
-            List of spectral displacement values for X and Y directions.
-
-        delta_ult_eq : list of np.ndarray
-            List of ultimate equivalent displacements for X and Y directions.
-
-        S_eq : list of np.ndarray
-            List of equivalent spectral acceleration values for X and Y directions.
-
-        dxstars : list of float
-            List of adjusted displacement values for X and Y directions.
-
-        Tr : list of np.ndarray
-            List of TR response spectra for X and Y directions.
-
-        IR : list of float
-            List of safety indicies for X and Y directions.
-
-        ADRS_TR : list of np.ndarray
-            List of TR acceleration-displacement response spectra for X and Y directions.
-
-        Sda_TR : list of np.ndarray
-            List of TR spectral displacement values for X and Y directions.
-
-        Saa_TR : list of np.ndarray
-            List of TR spectral acceleration values for X and Y directions.        
-
-        ag_TR : list of float
-            List of peak ground accelerations for X and Y directions. """
+        pushover_results : dict
+            Dictionary containing results for pushover analysis and seismic performance assessment. """
     
     spectral_func = design_params["spectral_func"]
     t_step = design_params["tstep"]
@@ -878,9 +843,22 @@ def compute_seismic_performance_assesment(design_params, Masses, v, H, K, delta_
           
 
 def _get_elastic_index(k):
+    """ Get the index of the first non-zero element in the array k.
+    
+        Parameters
+        ----------
+        k : list or np.ndarray
+            Array of stiffness values.
+            
+        Returns
+        -------
+        index : int
+            Index of the first non-zero element in k. """
+    
     diff = np.diff(k)
     idx = np.where(diff != 0)[0]
-    return len(k) - len(idx)
+    index = len(k) - len(idx)
+    return index
 
 def get_current_data(N, D, mu, S, G, V, NZ, alpha, check):
     """ Calculate ductility and drift limits for walls based on input parameters.
@@ -892,10 +870,10 @@ def get_current_data(N, D, mu, S, G, V, NZ, alpha, check):
             
         D : list of np.ndarray
             List of wall dimensions for each floor.
-            
-        mud : list of np.ndarray
-            List of wall friction coefficients for each floor.
-            
+
+        mu : float
+            Ductility factor for the walls.
+
         S : list of np.ndarray
             List of wall axial forces for each floor.
             
@@ -957,6 +935,21 @@ def get_current_data(N, D, mu, S, G, V, NZ, alpha, check):
 
 
 def get_global_vulnerability_metrics(v_bl, pushover_resuls):
+    """ Calculate global vulnerability metrics based on pushover analysis results.
+    
+        Parameters
+        ----------
+        v_bl : list of tuples
+            List of tuples containing base shear and displacement for X and Y directions.
+            
+        pushover_resuls : dict
+            Dictionary containing results from pushover analysis.
+            
+        Returns
+        -------
+        df : pd.DataFrame
+            DataFrame containing global vulnerability metrics including Safety Index, PGA, Return Period, Drift, and Estimated Peak Displacement."""
+    
     # Estimated peak displacement of the structure under seismic demand                    
     dxstar_t = pushover_resuls["dxstars"]  # intersection with demand spectrum
     # Return period - Earthquake intensity level that best matches structural capacity
@@ -972,5 +965,5 @@ def get_global_vulnerability_metrics(v_bl, pushover_resuls):
     values = np.round(values, 2)
     values = np.concatenate((np.array(['X', 'Y']).reshape(-1, 1), values), axis=1)
     columns = ['Direction', 'Safety Index', 'PGA_C', 'TR', 'δ', 'd* (t)']
-    return pd.DataFrame(values, columns=columns)
-
+    df = pd.DataFrame(values, columns=columns)
+    return df

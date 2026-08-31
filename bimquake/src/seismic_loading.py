@@ -1,6 +1,24 @@
 import numpy as np
 
 def _soil_factors(soil_category):
+    """ Calculate soil factors based on soil category.
+
+        Parameters
+        ----------
+        soil_category : str
+            Soil category ('A', 'B', 'C', 'D', 'E').
+
+        Returns
+        -------
+        p1 : float
+            Soil factor p1 based on soil category. 
+            
+        p2 : float
+            Soil factor p2 based on soil category.
+            
+        Tc_func : function
+            Function to calculate characteristic period Tc based on soil category. """
+    
     if soil_category == 'A':
         return 1.0, 1.0, lambda Tc: Tc
 
@@ -34,6 +52,7 @@ def _get_Vr_and_Tr(service_life, class_str):
 
         TrSLV : float
             Return period corresponding to the service life. """
+    
     print ("class:", class_str)
     match class_str:
         case 'I':
@@ -98,7 +117,7 @@ def _iterate_return_periods_hazard_params(ParaTR, Tr, Trmax=2475, table=None):
                 return Parameters
             
 
-def _get_Sgeo_and_Cc(soli_category, Parametri):
+def _get_Sgeo_and_Cc(soli_category, Parameters):
     """ Calculate seismic site coefficient and soil correction factor based on soil category and parameters.
     
         Parameters
@@ -106,7 +125,7 @@ def _get_Sgeo_and_Cc(soli_category, Parametri):
         soli_category : str
             Soil category ('A', 'B', 'C', 'D', 'E').
             
-        Parametri : np.ndarray
+        Parameters : np.ndarray
             Array of hazard parameters.
             
         Returns
@@ -124,43 +143,43 @@ def _get_Sgeo_and_Cc(soli_category, Parametri):
             Cc=1
             
         case 'B':
-            S_Sgeo=1.4-0.4*Parametri[1]*Parametri[0]
+            S_Sgeo=1.4-0.4*Parameters[1]*Parameters[0]
 
             if S_Sgeo<1:
                 S_Sgeo=1
             elif S_Sgeo>1.2:
                 S_Sgeo=1.2
 
-            Cc=1.1*(Parametri[2]**(-0.2))
+            Cc=1.1*(Parameters[2]**(-0.2))
 
         case 'C':
-            S_Sgeo=1.7-0.6*Parametri[1]*Parametri[0]
+            S_Sgeo=1.7-0.6*Parameters[1]*Parameters[0]
 
             if S_Sgeo<1:
                 S_Sgeo=1
             elif S_Sgeo>1.5:
                 S_Sgeo=1.5
 
-            Cc=1.05*(Parametri[2]**(-0.33))
+            Cc=1.05*(Parameters[2]**(-0.33))
 
         case 'D':
-            S_Sgeo=2.4-1.5*Parametri[1]*Parametri[0]
+            S_Sgeo=2.4-1.5*Parameters[1]*Parameters[0]
 
             if S_Sgeo<0.9:
                 S_Sgeo=0.9
             elif S_Sgeo>1.8:
                 S_Sgeo=1.8
 
-            Cc=1.25*(Parametri[2]**(-0.5))
+            Cc=1.25*(Parameters[2]**(-0.5))
 
         case 'E':
-            S_Sgeo=2-1.1*Parametri[1]*Parametri[0]
+            S_Sgeo=2-1.1*Parameters[1]*Parameters[0]
             if S_Sgeo<1:
                 S_Sgeo=1
             elif S_Sgeo>1.6:
                 S_Sgeo=1.6
 
-            Cc=1.15*(Parametri[2]**(-0.4))
+            Cc=1.15*(Parameters[2]**(-0.4))
     return S_Sgeo, Cc
 
 def _get_S_t(topographic_category):
@@ -261,9 +280,49 @@ def _get_tstep(TC, TB, TD):
     return tstep
 
 def iterate_return_periods_ADRS(
-    Masse, F_eq, design_params, delta_eq, kel,
+    Mass, F_eq, design_params, delta_eq, kel,
     soil_category
     ):
+
+    """ Iterate over return periods to compute the Acceleration-Displacement Response Spectrum (ADRS) and related parameters.
+    
+        Parameters
+        ----------
+        Masse : float
+            Mass of the structure.
+            
+        F_eq : np.ndarray
+            Equivalent force array.
+            
+        design_params : dict
+            Dictionary containing design parameters including 'tstep', 'ParaTR', and 'S_geo'.
+            
+        delta_eq : np.ndarray
+            Equivalent displacement array.
+            
+        kel : float
+            Elastic stiffness of the structure.
+            
+        soil_category : str
+            Soil category ('A', 'B', 'C', 'D', 'E').
+            
+        Returns
+        -------
+        Tr : float
+            Return period corresponding to the best match.
+            
+        ag : float
+            Design ground acceleration for the best match.
+            
+        ADRS_TR : np.ndarray
+            Acceleration-Displacement Response Spectrum (ADRS) for the best match.
+            
+        Sda : np.ndarray
+            Displacement response spectrum for the best match.
+            
+        Saa : np.ndarray
+            Acceleration response spectrum for the best match. """
+    
     tstep = design_params["tstep"]
     ParaTR = design_params["ParaTR"]
     ParaTR = ParaTR.values[:, 1:]
@@ -272,7 +331,7 @@ def iterate_return_periods_ADRS(
     Trmax = 2475
     years = np.arange(3, Trmax+10000, 1)
 
-    M = Masse
+    M = Mass
     Tx = 2*np.pi*np.sqrt(M / (kel * 9.81))
 
     # soil functions
@@ -367,13 +426,40 @@ def iterate_return_periods_ADRS(
         Saa = ADRS_TR[:, 1] / R_mu
         Sda = mu * (ADRS_TR[:, 0] / R_mu)
 
-
-
-
     return Tr, ag, ADRS_TR, Sda, Saa
 
 
 def _get_spectral_points(T, ag, p1, TC, TD, S_geo):
+        """ Calculate spectral acceleration and displacement points based on period and parameters.
+        
+            Parameters
+            ----------
+            T : float
+                Period for which to calculate spectral points.
+                
+            ag : float
+                Design ground acceleration.
+                
+            p1 : float
+                Soil factor p1 based on soil category.
+                
+            TC : float
+                Characteristic period TC.
+                
+            TD : float
+                Characteristic period TD.
+                
+            S_geo : float
+                Seismic site coefficient.
+                
+            Returns
+            -------
+            Sae : float
+                Spectral acceleration at period T.
+                
+            Sde : float
+                Spectral displacement at period T. """
+        
         if T < TC / 3:
             Sae = ag * S_geo * p1 * (T/(TC/3) + 1/p1 * (1 - T/(TC/3)))
         elif T < TC:
@@ -394,6 +480,52 @@ def get_seismic_loading(
                       soil_category,
                       topographic_category,
                       total_height):
+
+    """ Calculate seismic loading parameters based on design parameters and site characteristics.
+    
+        Parameters
+        ----------
+        ParaTR : np.ndarray
+            Array of hazard parameters for predefined return periods.
+            
+        service_life : float
+            Service life of the building in years.
+            
+        importance_class : str
+            Importance class of the building ('I', 'II', 'III', 'IV').
+            
+        soil_category : str
+            Soil category ('A', 'B', 'C', 'D', 'E').
+            
+        topographic_category : str
+            Topographic category ('T1', 'T2', 'T3', 'T4').
+            
+        total_height : float
+            Total height of the building in meters.
+            
+        Returns
+        -------
+        Se_SLV_T : np.ndarray
+            Spectral acceleration at service life and period T.
+            
+        ag_SLV : float
+            Design ground acceleration for service life.
+            
+        S_geo : float
+            Seismic site coefficient.
+            
+        ADRS : np.ndarray
+            Acceleration-Displacement Response Spectrum (ADRS) for service life.
+            
+        tstep : np.ndarray
+            Array of time steps used in ADRS calculation.
+            
+        spectral_point_func : function
+            Function to calculate spectral points based on period T.
+            
+        TC : float
+            Characteristic period TC based on soil category and parameters. """
+    
     print("servicee life:", service_life)
     print("importance class:", importance_class)
     _, TrSLV = _get_Vr_and_Tr(service_life, importance_class)

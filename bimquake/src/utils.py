@@ -3,6 +3,19 @@ from shapely.geometry import LineString, Polygon   # for matching wall below wal
 import numpy as np
 
 def get_psi_2_factor(category):
+    """ Return the psi_2 factor based on the category of the load.
+    
+    Parameters
+    ----------
+    category : str
+        The category of the load (e.g., "A", "B", "C", "D", "E", "F", "G", "H").
+
+    Returns
+    -------
+    psi_2 : float
+        The corresponding psi_2 factor for the given category.
+    """
+
     factor ={
       "A":0.3,
       "B":0.3,
@@ -13,10 +26,34 @@ def get_psi_2_factor(category):
       "G":0.3,
       "H":0.
     }
-    return factor[category]
+
+    psi_2 = factor[category]
+    return psi_2
 
 
 def compute_limit_state_values(g1, g2, q, limit_state="ULS"):
+    """ Compute the total load based on the limit state.
+
+        Parameters
+        ----------
+        g1 : float
+            The first permanent load.
+        
+        g2 : float
+            The second permanent load.
+
+        q : dict
+            A dictionary containing variable loads with their categories as keys and load values as values.
+
+        limit_state : str, optional
+            The limit state to consider ("ULS" or "SLS"). Default is "ULS".
+
+        Returns
+        -------
+        p : float
+            The computed total load based on the specified limit state.
+        """
+    
     if limit_state == "ULS":
       p = 1.1 * g1 + 1.3 * g2
       for cat_i, val_i in q.items():
@@ -31,6 +68,24 @@ def compute_limit_state_values(g1, g2, q, limit_state="ULS"):
 
 
 def plot_by_plotly(data, title, showlegend=True):
+    """ Create a 3D plot using Plotly.
+    
+        Parameters
+        ----------
+        data : list
+            A list of Plotly trace objects to be plotted.
+            
+        title : str
+            The title of the plot.
+            
+        showlegend : bool, optional
+            Whether to show the legend in the plot. Default is True.
+            
+        Returns
+        -------
+        fig : plotly.graph_objects.Figure
+            The Plotly figure object containing the 3D plot."""
+    
     fig = go.Figure(data=data)
     fig.update_layout(
         title = title,
@@ -47,6 +102,27 @@ def plot_by_plotly(data, title, showlegend=True):
 
 
 def get_line_polygon_intersection_and_gaps(line_points, poly_points, tol=1e-3):
+    """ Check the intersection of a line with a polygon and return the contact segments and unsupported segments.
+
+        Parameters
+        ----------
+        line_points : list of list
+            A list of two points defining the line (e.g., [[x1, y1], [x2, y2]]).
+
+        poly_points : list of list
+            A list of points defining the polygon (e.g., [[x1, y1], [x2, y2], ..., [xn, yn]]).
+
+        tol : float, optional
+            Tolerance for geometric calculations. Default is 1e-3.
+
+        Returns
+        -------
+        contact_segments : list of np.ndarray
+            A list of segments where the line intersects the polygon.
+
+        unsupported_segments : list of np.ndarray
+            A list of segments of the line that do not intersect the polygon. """
+    
     # Create polygon
     poly = Polygon([tuple(pt) for pt in poly_points])
     if not poly.is_valid:
@@ -100,8 +176,22 @@ def segments_overlap(seg1, seg2, tol=1e-3):
     """
     Return the overlap (start, end) of two 1D segments if they intersect.
 
-    Returns:
-      (start, end) of the overlapping section, or None if no overlap.
+    Parameters
+    ----------
+    seg1 : tuple
+        A tuple representing the first segment (start1, end1).
+
+    seg2 : tuple
+        A tuple representing the second segment (start2, end2).
+
+    tol : float, optional
+        Tolerance for determining overlap. Default is 1e-3.
+
+    Returns
+    -------
+    overlap : tuple or None
+        A tuple representing the overlapping segment (overlap_start, overlap_end) if they intersect,
+        or None if there is no overlap.
 
     """
     start1, end1 = sorted([seg1[0], seg1[1]])
@@ -115,11 +205,26 @@ def segments_overlap(seg1, seg2, tol=1e-3):
 
 
 def segments_overlap_2d(seg1, seg2, tol=1e-6):
-    """
-    seg1, seg2: (2,2) arrays in XY
-    Returns:
-        (overlap_length, overlap_segment_xy) or (0, None)
-    """
+    """ Check if two 2D segments overlap and return the overlapping segment if they do.
+
+    Parameters
+    ----------
+    seg1 : np.ndarray
+        A (2, 2) array representing the first segment in XY coordinates.
+
+    seg2 : np.ndarray
+        A (2, 2) array representing the second segment in XY coordinates.
+
+    tol : float, optional
+        Tolerance for determining overlap. Default is 1e-6.
+
+    Returns
+    -------
+    overlap_length : float
+        The length of the overlapping segment. Returns 0 if there is no overlap.
+            
+    overlap_segment : np.ndarray or None
+        A (2, 2) array representing the overlapping segment if they overlap, or None if they do not overlap. """
 
     p1, p2 = seg1
     q1, q2 = seg2

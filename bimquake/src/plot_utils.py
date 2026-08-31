@@ -127,7 +127,33 @@ def plot_ADRS_demand_and_capacity(v_bl, pushover_results):
 
 
 def _get_wall_vertices(cx, cy, l, w, alpha_deg):
-    """ Helper to calculate rotated rectangle corners for Plotly. """
+    """ Helper to calculate rotated rectangle corners for Plotly.
+    
+        Parameters
+        ----------
+        cx : float
+            Center x-coordinate of the rectangle.
+        
+        cy : float
+            Center y-coordinate of the rectangle.
+            
+        l : float
+            Length of the rectangle along the local x-axis.
+            
+        w : float
+            Width of the rectangle along the local y-axis.
+            
+        alpha_deg : float
+            Rotation angle in degrees (counter-clockwise).
+            
+        Returns
+        -------
+        x_rot : np.ndarray
+            x-coordinates of the rectangle corners after rotation.
+            
+        y_rot : np.ndarray
+            y-coordinates of the rectangle corners after rotation. """
+    
     alpha = np.radians(alpha_deg)
     
     # Local coordinates of corners relative to center
@@ -142,7 +168,19 @@ def _get_wall_vertices(cx, cy, l, w, alpha_deg):
     return x_rot, y_rot
 
 
-def get_color_from_safety_factor(sf):   
+def get_color_from_safety_factor(sf):
+    """ Determine color based on safety factor value.
+    
+        Parameters
+        ----------
+        sf : float
+            Safety factor value.
+            
+        Returns
+        -------
+        color : str
+            Hex color code corresponding to the safety factor. """
+       
     if np.isnan(sf):
         return "#E5E4E2"  # Neutral light gray
     if sf < 1.0:
@@ -158,6 +196,19 @@ def get_color_from_safety_factor(sf):
 
 
 def add_safety_factor_colorbar(fig, c_min=0.5, c_max=2.0):
+    """ Add a colorbar to the Plotly figure representing safety factor ranges.
+    
+        Parameters
+        ----------
+        fig : plotly.graph_objects.Figure
+            The Plotly figure to which the colorbar will be added.
+            
+        c_min : float, optional
+            Minimum value for the color scale (default is 0.5).
+            
+        c_max : float, optional
+            Maximum value for the color scale (default is 2.0). """
+
     marker=dict(
                 colorscale=[
                     [0, '#4B0000'], [0.3333, '#FF0000'],
@@ -180,6 +231,31 @@ def add_safety_factor_colorbar(fig, c_min=0.5, c_max=2.0):
 
 
 def plot_colored_layout(wall_props, colors, hover_texts, bounds, title=None):
+    """ Generate a Plotly figure showing the building layout with walls colored by safety factor.
+
+        Parameters
+        ----------
+        wall_props : dict
+            Dictionary containing wall properties with keys:
+            'wall_id', 'Cx', 'Cy', 'L', 'w', 'alpha'.
+        
+        colors : list of str
+            List of hex color codes corresponding to each wall's safety factor.
+        
+        hover_texts : list of str
+            List of hover text strings for each wall.
+        
+        bounds : tuple
+            Tuple containing (x_min, x_max, y_min, y_max) for the plot axes.
+        
+        title : str, optional
+            Title for the plot (default is None).
+
+        Returns
+        -------
+        fig : plotly.graph_objects.Figure
+            Figure object containing the colored layout plot. """
+    
     x_min, x_max, y_min, y_max = bounds
     # pack wall properties for iteration
     wall_prop_iter = zip(wall_props["wall_id"],
