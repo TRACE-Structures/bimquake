@@ -8,7 +8,29 @@ from .utils import compute_limit_state_values, get_line_polygon_intersection_and
 from .frame_element import MaterialProperties, Linkage, Linkages
 
 class Wall(IfcObject):
+    """ Class representing a wall created from the IFC product. 
+    
+        Attributes
+        ----------
+        wall_partitions : StructuralUnitSet
+            The set of wall partitions belonging to this wall.
+        supported_by_walls : list
+            The list of walls supporting this wall.
+        loaded_by_slab_partition : list
+            The list of slab partitions loading this wall.
+        loaded_by_walls : list
+            The list of walls loading this wall.
+        openings : SolidObjectSet
+            The set of openings in this wall. """
+    
     def __init__(self, ifc_object):
+        """ Initializes a Wall instance.
+
+            Parameters
+            ----------
+            ifc_object : IfcObject
+                The IFC object representing the wall. """
+        
         super().__init__(ifc_object)
         self.set_points_without_inner_wall_points()
         self.orthogonalize_end_faces()
@@ -23,23 +45,72 @@ class Wall(IfcObject):
   ##################################################################
 
     def add_supporting_wall(self, contact_dict):
+        """ Adds a wall that supports this wall.
+
+            Parameters
+            ----------
+            contact_dict : dict
+                A dictionary containing information about the supporting wall contact. """
+        
         self.supported_by_walls.append(contact_dict)
 
     def add_loading_slab_partition(self, contact_dict):
+        """ Adds a slab partition that loads this wall.
+
+            Parameters
+            ----------
+            contact_dict : dict
+                A dictionary containing information about the slab partition contact. """
+        
         self.loaded_by_slab_partition.append(contact_dict)
 
     def add_loading_wall(self, contact_dict):
+        """ Adds a wall that loads this wall.
+
+            Parameters
+            ----------
+            contact_dict : dict
+                A dictionary containing information about the loading wall contact. """
+        
         self.loaded_by_walls.append(contact_dict)
 
   ##################################################################
   #                Methods to get geometrical properties
   ##################################################################
     def get_average_x_coords(self, coords):
+        """ Adjusts the x-coordinates of the given points to their average value.
+
+            Parameters
+            ----------
+            coords : array-like
+                The coordinates of the points.
+
+            Returns
+            -------
+            coords : array-like
+                The coordinates with adjusted x-values. """
+        
         if not np.allclose(coords[:,0], coords[0,0]):
           coords[:, 0] = np.mean(coords[:, 0])
         return coords
 
     def get_index_of_corner_points(self, points=None, warn_flag=True):
+      """ Gets the indices of the corner points of the wall.
+
+          Parameters
+          ----------
+          points : array-like, optional
+              The coordinates of the wall points (default is None, which uses self.points).
+          warn_flag : bool, optional
+              Whether to print a warning if finding the bounding box corner indices fails (default is True).
+
+          Returns
+          -------
+          ind_start_face : array-like
+              The indices of the corner points of the start face.
+          ind_end_face : array-like
+              The indices of the corner points of the end face. """
+      
       if points is None:
         points = self.points
       # Get index of four corner points of the wall (order first by x, then z, then y)
@@ -61,6 +132,18 @@ class Wall(IfcObject):
       return ind_start_face, ind_end_face
 
     def get_index_of_upper_corner_points(self, points=None):
+       """ Gets the indices of the upper corner points of the wall.
+
+           Parameters
+           ----------
+           points : array-like, optional
+               The coordinates of the wall points (default is None, which uses self.points).
+
+           Returns
+           -------
+           ind_upper_face : array-like
+               The indices of the corner points of the upper face. """
+       
        if points is None:
          points = self.points
        ind_corner = self.get_bounding_box_corner_indices(points=points, tol=0.02) 
@@ -69,6 +152,18 @@ class Wall(IfcObject):
        return ind_upper_face
 
     def get_upper_face_axis_points(self, points=None):
+      """ Gets the axis points of the upper face of the wall.
+
+          Parameters
+          ----------
+          points : array-like, optional
+              The coordinates of the wall points (default is None, which uses self.points).
+
+          Returns
+          -------
+          axis_points : array-like
+              The coordinates of the axis points of the upper face. """
+      
       if points is None:
         points = self.points
       ind_u = self.get_index_of_upper_corner_points(points=points)
@@ -78,9 +173,22 @@ class Wall(IfcObject):
       p1 = np.mean(point_l_u[ind_sort[:2]], axis=0)
       p2 = np.mean(point_l_u[ind_sort[2:4]], axis=0)
       p = np.array([p1, p2])
-      return self.transform_to_global(p)
+      axis_points = self.transform_to_global(p)
+      return axis_points
 
     def get_lower_face_axis_points(self, points=None):
+      """ Gets the axis points of the lower face of the wall.
+
+          Parameters
+          ----------
+          points : array-like, optional
+              The coordinates of the wall points (default is None, which uses self.points).
+
+          Returns
+          -------
+          axis_points : array-like
+              The coordinates of the axis points of the lower face. """
+      
       if points is None:
         points = self.points
       ind_start, ind_end = self.get_index_of_corner_points(points=points)
@@ -91,9 +199,17 @@ class Wall(IfcObject):
       p2 = np.mean(point_b_end, axis=0)
 
       p = np.array([p1, p2])
-      return self.transform_to_global(p)
+      axis_points = self.transform_to_global(p)
+      return axis_points
 
     def get_index_of_opening_points(self):
+      """ Gets the indices of the opening points of the wall.
+
+          Returns
+          -------
+          ind_openings : array-like
+              The indices of the opening points of the wall. """
+      
       n = self.points.shape[0]
       if n > 8:
         all_indices = np.arange(n)
@@ -112,6 +228,24 @@ class Wall(IfcObject):
       return ind_openings
 
     def filter_opening_points(self, ind_openings, x_tol=0.01, y_tol=0.01, z_tol=0.01):
+        """ Filters the opening points of the wall based on their local coordinates.
+
+            Parameters
+            ----------
+            ind_openings : array-like
+                The indices of the opening points of the wall.
+            x_tol : float, optional
+                The tolerance for grouping x coordinates (default is 0.01).
+            y_tol : float, optional
+                The tolerance for grouping y coordinates (default is 0.01).
+            z_tol : float, optional
+                The tolerance for grouping z coordinates (default is 0.01).
+
+            Returns
+            -------
+            filtered_openings : array-like
+                The filtered indices of the opening points that form rectangular shapes. """
+        
         o_points = self.points[ind_openings]
         local_points = self.transform_to_local(o_points)
         ind_sort = self.sort_points_by_coordinates(local_points)
@@ -135,9 +269,12 @@ class Wall(IfcObject):
               if is_paired:
                 filtered_indices += [ind_sort[int(i)] for i in ind_same_x]
               #TODO: it should be also checked if the groups of two subsequent four points shape a rectangular shape 
-        return ind_openings[filtered_indices]
+        filtered_openings = ind_openings[filtered_indices]
+        return filtered_openings
 
     def orthogonalize_end_faces(self):
+        """ Orthogonalizes the end faces of the wall by adjusting the local x-coordinates of the corner points. """
+
         # Transform point coordinates to local coordinates
         local_points = self.transform_to_local(self.points)
         # Get index of corner points
@@ -153,14 +290,29 @@ class Wall(IfcObject):
         self.set_points(points)
 
     def set_points_without_inner_wall_points(self):
+        """ Sets the points of the wall without the inner wall points, keeping only the outer surface points. 
+        
+            Returns
+            -------
+            points : array-like
+                The points of the wall without the inner wall points. """
+        
         points_l = self.transform_to_local(self.points)
         min_y = np.min(points_l[:, 1])
         max_y = np.max(points_l[:, 1])
         # Keep only points in the outer surface of the wall
         ind = np.isclose(points_l[:, 1], min_y, atol=0.001) | np.isclose(points_l[:, 1], max_y, atol=0.001)
-        return self.set_points(self.points[ind])
+        points = self.set_points(self.points[ind])
+        return points
 
     def set_openings(self):
+        """ Sets the openings of the wall if they are not already set.
+
+            Returns
+            -------
+            openings : SolidObjectCollection
+                The collection of openings of the wall. """
+        
         if self.openings.objects != []:
             return self.openings
         ind_openings = self.get_index_of_opening_points()
@@ -171,14 +323,24 @@ class Wall(IfcObject):
         for i in range(n_open):
             ind_open = ind_openings[8*i:8*i+8]
             self.openings.add_object(SolidObject(self.points[ind_open]))
-        return self.openings
+        openings = self.openings
+        return openings
 
     def get_openings(self):
+        """ Gets the openings of the wall.
+
+            Returns
+            -------
+            openings : SolidObjectCollection
+                The collection of openings of the wall. """
+        
         if self.openings.objects != []:
-          return self.openings
+          openings = self.openings
         else:
           self.set_openings()
-          return self.openings
+          openings = self.openings
+        return openings
+
 
         #for i in range(n_open):
         #    ind_open = ind_openings[8*i:8*i+8]
@@ -186,6 +348,13 @@ class Wall(IfcObject):
         # return self.openings
 
     def get_net_volume(self):
+        """ Gets the net volume of the wall, subtracting the volume of openings.
+
+            Returns
+            -------
+            net_volume : float
+                The net volume of the wall after subtracting the volume of openings. """
+        
         # Full wall volume
         V = self.get_volume()
         # Volume of opening
@@ -194,10 +363,27 @@ class Wall(IfcObject):
         if Os is not None:
           for O_i in Os.objects:
             V_o += self.get_volume(points=O_i.points)
-          return V-V_o
-        return V
-
+          net_volume = V-V_o
+          return net_volume
+        
+        net_volume = V
+        return net_volume
+    
     def get_half_net_volumes(self, z_cut=None):
+        """ Gets the net volumes of the upper and lower halves of the wall, optionally cutting at a specified height.
+
+            Parameters
+            ----------
+            z_cut : float, optional
+                The height at which to cut the wall. If None, the wall is cut at its midpoint.
+
+            Returns
+            -------
+            V_b : float
+                The net volume of the bottom half of the wall.
+            V_t : float
+                The net volume of the top half of the wall. """
+        
       # z_cut is the height of plane cutting the wall to upper and lower volumes
         if z_cut is None:
           z_max = self.get_top_height()
@@ -234,6 +420,14 @@ class Wall(IfcObject):
         return V_b, V_t
 
     def project_opening_points_to_wall_bottom_and_top(self):
+        """ Projects the opening points of the wall to the bottom and top faces of the wall.
+
+            Returns
+            -------
+            points : np.ndarray
+                The coordinates of the wall points with the opening points projected to the bottom and top faces.
+                Returns None if there are no opening points. """
+        
         ind_opening = self.get_index_of_opening_points()
         points = self.points.copy()
         # Maybe the next should be the local one, not sure if it can happen that the two does not match????
@@ -259,6 +453,26 @@ class Wall(IfcObject):
             return points
 
     def is_edge_on_wall_top(self, e_points, face_points=None, tol_z=0.02, tol_y=None):
+        """ Checks if a given edge is on the top face of the wall.
+
+            Parameters
+            ----------
+            e_points : np.ndarray
+                The coordinates of the edge points to check.
+            face_points : np.ndarray, optional
+                The coordinates of the top face points of the wall. If None, the top face points are obtained from the wall.
+            tol_z : float, optional
+                The tolerance for Z alignment. Default is 0.02.
+            tol_y : float, optional
+                The tolerance for Y alignment. Default is None.
+
+            Returns
+            -------
+            is_on_top : bool
+                True if the edge is on the top face of the wall, False otherwise.
+            contact_info : dict or None
+                Information about the contact if the edge is on the top face, None otherwise. """
+        
         # Find the points of the top face of the wall (global coordinate)
         if face_points is None:
           ind = self.get_index_of_upper_corner_points()
@@ -311,6 +525,13 @@ class Wall(IfcObject):
   #                Methods to get mechanical properties
   ##################################################################
     def get_upper_half_weight(self):
+        """ Computes the weight of the upper half of the wall.
+
+            Returns
+            -------
+            G_t : float
+                The weight of the upper half of the wall. """
+        
         V_b, V_t = self.get_half_net_volumes()
         rho = self.properties.density
         G_t = V_t* 9.81 * rho
@@ -329,12 +550,30 @@ class Wall(IfcObject):
         return G_t 
 
     def get_lower_half_weight(self):
+        """ Computes the weight of the lower half of the wall.
+
+            Returns
+            -------
+            G_b : float
+                The weight of the lower half of the wall. """
+        
         V_b, V_t = self.get_half_net_volumes()
         rho = self.properties.density
         G_b = V_b* 9.81 * rho
         return G_b     
     
     def get_distributed_loads_from_slabs(self):
+        """ Computes the distributed loads on the wall from the slabs above it.
+
+            Returns
+            -------
+            p_g1 : float
+                The distributed load from g1 on the top of the wall.
+            p_g2 : float
+                The distributed load from g2 on the top of the wall.
+            p_q : dict
+                The distributed loads from different q categories on the top of the wall. """
+        
       # This method computes a uniform distributed load (force/lenggth) 
       # equally distributed along the wall length acting on the top of the wall
 
@@ -365,6 +604,8 @@ class Wall(IfcObject):
         return p_g1, p_g2, p_q
 
     def set_transmitting_distributed_loads(self):
+        """ Sets the transmitting distributed loads on the wall from slabs and above walls. """
+
         # Compute loads from slabs
         p_g1_S, p_g2_S, p_q_S = self.get_distributed_loads_from_slabs()
         # Compute loads from above walls
@@ -415,6 +656,12 @@ class Wall(IfcObject):
 
     #----------------------------------------------------------------------
     def set_stress_in_wall_partitions(self):
+        """ Sets the stress in the wall partitions based on the applied loads. 
+
+            This method calculates the normal stresses at the top and half-height of each wall partition
+            considering the permanent and variable loads applied to the wall.
+
+            The computed stresses are then assigned to the respective wall partitions. """
     
         # Wall loading at the top of the wall [N/m]
         g1 = self.p_g1_top
@@ -468,6 +715,16 @@ class Wall(IfcObject):
   
 
     def get_distributed_loads_from_above_walls(self):
+        """ Computes the distributed loads on the wall from the walls above it.
+
+            Returns
+            -------
+            p_g1 : float
+                The distributed load from g1 on the top of the wall.
+            p_g2 : float
+                The distributed load from g2 on the top of the wall.
+            p_q : dict
+                The distributed loads from different q categories on the top of the wall. """
         
         loads = self.loaded_by_walls
         # Initiate loading on top of the wall distributed along the axis
@@ -490,34 +747,32 @@ class Wall(IfcObject):
                 p_q[cat_i] += val_i * L_i / L 
         return p_g1, p_g2, p_q
 
-#    def get_limit_state_stress(self, limit_state="SLE"):
-#        if None in (self.p_g1, self.p_g2, self.p_q):
-#          return None
-#        w = self.get_dimensions()["Width"]
-#        sigma_g1 = self.p_g1/w
-#        sigma_g2 = self.p_g2/w
-#        categories = ["A", "B", "C", "D", "E", "F", "G", "H"]
-#        sigma_q = {cat_i: self.p_q[cat_i]/w for cat_i in categories}
-#        
-#        if limit_state == "SLU":
-#          sigma = 1.1 * sigma_g1 + 1.3 * sigma_g2 
-#          for cat_i, val_i in sigma_q.items():
-#            sigma += 1.5 * val_i
-#        elif limit_state == "SLE":
-#          sigma =  1 * (sigma_g1 + sigma_g2)
-#          for cat_i, val_i in sigma_q.items():
-#            sigma += self.get_psi_2_factor(cat_i) * val_i
-#        else:
-#          raise(ValueError("Limit state must be SLE or SLU"))
-#        return sigma
-
-
 
   ##################################################################
   #Method related to contacts with other elements, wall partitions
   ##################################################################
 
     def get_WP_support_info(self, points_start, points_end):
+        """ Gets the support information for the wall partition defined by the start and end points.
+
+            Parameters
+            ----------
+            points_start : np.ndarray
+                The start points of the wall partition edges.
+            points_end : np.ndarray
+                The end points of the wall partition edges.
+
+            Returns
+            -------
+            supporting_WPs : list
+                List of wall partitions supporting the current wall partition.
+            contact_length : float
+                The total contact length of the supporting wall partitions.
+            unsupported_sections : list
+                List of unsupported sections, each represented as a tuple with start and end points.
+            contact_length_list : list
+                List of contact lengths for each supporting wall partition. """
+        
         WP_points = np.concatenate((points_start, points_end), axis=0)
         WP_axis = self.get_lower_face_axis_points(points=WP_points)
         WP_length = np.linalg.norm(points_end - points_start)
@@ -564,6 +819,23 @@ class Wall(IfcObject):
 
    
     def register_wall_partition(self, points_start, points_end, linked_WP_points_begin=None, linked_WP_points_end=None ):
+        """ Registers a wall partition with the given start and end points.
+
+            Parameters
+            ----------
+            points_start : np.ndarray
+                The start points of the wall partition edges.
+            points_end : np.ndarray
+                The end points of the wall partition edges.
+            linked_WP_points_begin : list, optional
+                List of linked wall partition points at the beginning of the wall partition.
+            linked_WP_points_end : list, optional
+                List of linked wall partition points at the end of the wall partition.
+
+            Returns
+            -------
+            WPs : list or None
+                The registered wall partition object if successfully created, otherwise None. """
               
         n = len(self.wall_partitions.objects)
 
@@ -689,6 +961,22 @@ class Wall(IfcObject):
 
 
     def merge_sections_and_ignore_small_ones(self, sections, tol_merge=0.05, tol_ignore=0.2):
+      """ Merges overlapping or closely spaced sections and ignores sections that are too small.
+
+          Parameters
+          ----------
+          sections : list
+              List of sections, each represented as a tuple with start and end points.
+          tol_merge : float, optional
+              Tolerance for merging sections that are close to each other. Default is 0.05.
+          tol_ignore : float, optional
+              Tolerance for ignoring sections that are too small. Default is 0.2.
+
+          Returns
+          -------
+          new_sections : list
+              List of merged and filtered sections. """
+      
       if len(sections)>1:
         # Sort by section start (made for unsupported sections of wall parts)
         sections.sort(key=lambda interval: interval[0])
@@ -716,6 +1004,13 @@ class Wall(IfcObject):
       return new_sections
 
     def set_wall_partitions(self):
+        """ Sets the wall partitions for the current wall.
+
+            Returns
+            -------
+            wall_partitions : list
+                List of wall partitions for the current wall. """
+        
         if self.wall_partitions.objects != []:
           return self.wall_partitions
         # Get corner nodes and nodes that define openings
@@ -796,11 +1091,30 @@ class Wall(IfcObject):
         return self.wall_partitions
 
     def get_wall_partitions(self):
+        """ Gets the wall partitions for the current wall.
+
+            Returns
+            -------
+            wall_partitions : list
+                List of wall partitions for the current wall. """
+        
         if self.wall_partitions.objects == []:
           self.set_wall_partitions()
         return self.wall_partitions
 
     def get_material_properties(self, mu = 1.5):
+        """ Gets the material properties for the current wall.
+
+            Parameters
+            ----------
+            mu : float, optional
+                Friction coefficient. Default is 1.5.
+
+            Returns
+            -------
+            mat_props : MaterialProperties
+                Material properties of the current wall. """
+        
         rho = self.properties.density
         mat_props = MaterialProperties(
           E = self.properties.E,         # Young modulus
@@ -816,4 +1130,5 @@ class Wall(IfcObject):
 
  
     def __repr__(self):
+        """ Returns a string representation of the wall object. """
         return f"<Wall #{self.ifc_obj.id()}>"

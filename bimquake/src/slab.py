@@ -5,7 +5,27 @@ import numpy as np
 
 
 class Slab(IfcObject):
+    """ Class representing a slab object in the IFC model. 
+    
+        Attributes
+        ----------
+        load_principal_direction : str
+            The principal direction of the load on the slab ('x_axis' or 'y_axis').
+        load_transfer_type : str
+            The type of load transfer ('OneWay' or 'TwoWay').
+        slab_partitions : StructuralUnitSet
+            The set of slab partitions. """
+    
     def __init__(self, ifc_object, create_partitions=True):
+        """ Initialize a Slab object.
+
+            Parameters
+            ----------
+            ifc_object : IfcObject
+                The IFC object representing the slab.
+            create_partitions : bool, optional
+                Whether to create slab partitions (default is True). """
+        
         super().__init__(ifc_object)
         # load transmitting edges
         self.load_principal_direction, self.load_transfer_type = self.get_load_transfer_direction()   #A vector of the principle direction #OneWay /TwoWay
@@ -14,6 +34,15 @@ class Slab(IfcObject):
           self.set_slab_partitions()
 
     def get_load_transfer_direction(self):
+        """ Determine the load transfer direction for the slab.
+
+            Returns
+            -------
+            load_principal_direction : str
+                The principal direction of the load ('x_axis' or 'y_axis').
+            load_transfer_type : str
+                The type of load transfer ('OneWay' or 'TwoWay'). """
+        
         # Here we would need to check whether the direction is given in the IFC object
         # TODO
         # If direction is not given in the IFC object, decide by dimensions
@@ -50,6 +79,12 @@ class Slab(IfcObject):
         return load_principal_direction, load_transfer_type
 
     def get_weight(self):
+        """ Calculate the weight of the slab.
+
+            Returns
+            -------
+            weight : float
+                The weight of the slab based on its properties and surface area. """
         p = 0
         categories = ["A", "B", "C", "D", "E", "F", "G", "H"]
         if self.properties.g1 is not None:
@@ -63,23 +98,47 @@ class Slab(IfcObject):
             val_i = getattr(self, q_i)
             p += self.get_psi_2_factor(cat_i) * val_i
         A = self.get_upper_face_area()
-        return p*A
+        weight = p * A
+        return weight
 
     def create_slab_partition_from_local_props(self, start_points_l, end_points_l, e_points_l, A, id):
+        """ Create a slab partition from local properties.
+
+            Parameters
+            ----------
+            start_points_l : np.ndarray
+                Local coordinates of the start points of the partition.
+            end_points_l : np.ndarray
+                Local coordinates of the end points of the partition.
+            e_points_l : np.ndarray
+                Local coordinates of the edge points where loads are transmitted.
+            A : float
+                Surface area of the partition.
+            id : int
+                Identifier for the partition.
+
+            Returns
+            -------
+            slab_partition : SlabPartition
+                The created slab partition object. """
+        
         cube_points= self.transform_to_global(np.concatenate((start_points_l, end_points_l), axis=0))
         e_points = self.transform_to_global(e_points_l)
         # rho = self.properties.density
         g1 = self.properties.g1
         g2 = self.properties.g2
         q = self.properties.get_q_dict()
-        return SlabPartition(cube_points, id, self, e_points, A,
+        slab_partition = SlabPartition(cube_points, id, self, e_points, A,
                              g1=g1, g2=g2, q=q)
+        return slab_partition
 
     def set_slab_partitions(self):
-        """
-        Divides the slab into parts according to the walls it loads.
-        Returns:
-            HierarchicalStructuresSet: Collection of Hierarchical solid objects.
+        """ Divides the slab into parts according to the walls it loads.
+
+            Returns
+            -------
+            slab_partitions : SlabPartition
+                Collection of hierarchical solid objects.
         """
 
         # Check whether there are more then 8 points of the slab
@@ -108,18 +167,27 @@ class Slab(IfcObject):
                   P[key]["Start"], P[key]["End"], P[key]["EPoints"],
                   P[key]["A"], id_i)
               )
-
-        return self.slab_partitions
+        slab_partitions = self.slab_partitions
+        return slab_partitions
 
     def get_slab_partitions(self):
-        return self.slab_partitions
+        """ Returns the collection of slab partitions.
+
+            Returns
+            -------
+            slab_partitions : SlabPartition
+                Collection of hierarchical solid objects."""
+        slab_partitions = self.slab_partitions
+        return slab_partitions
 
     def get_partition_properties_by_halving(self, points_l, ind_sort):
-        """
-        Divides the slab into parts according to the walls it loads.
-        Returns:
-            local_coordinates of wall partitions.
-        """
+        """ Divides the slab into parts according to the walls it loads.
+            
+            Returns
+            -------
+            P : dict
+                Dictionary containing local coordinates of wall partitions, edge points, and surface areas. """
+        
         # Initialize partition dictionary, list of partition areas and load transmitting faces
         P = {1: {"Start": None, "End": None, "EPoints": None, "A": None},
              2: {"Start": None, "End": None, "EPoints": None, "A": None}}
@@ -160,12 +228,14 @@ class Slab(IfcObject):
         return P
 
     def get_partition_properties_by_four_way_distribution(self, points_l, ind_sort):
-        """
-        Divides the slab into four parts to the walls it loads
-            Returns:
-            local_coordinates of wall partitions.
-        """
-       # Initialize partition dictionary, list of partition areas and load transmitting faces
+        """ Divides the slab into four parts to the walls it loads
+            
+            Returns
+            -------
+            P : dict
+                Dictionary containing local coordinates of wall partitions, edge points, and surface areas. """
+        
+        # Initialize partition dictionary, list of partition areas and load transmitting faces
         P = {i: {"Start": None, "End": None} for i in range(1, 5)}
 
         # get area of floor
@@ -242,11 +312,24 @@ class Slab(IfcObject):
         return P
 
     def find_slab_partition_by_id(self, id):
+        """ Returns the slab partition with the specified ID.
+
+            Parameter
+            ---------
+            id : int
+                The ID of the slab partition to find.
+
+            Returns
+            -------
+            SP_i : SlabPartition or None
+                The slab partition with the specified ID, or None if not found. """
+        
         for SP_i in self.slab_partitions.objects:
             if SP_i.id == id:
                 return SP_i
         return None
 
     def __repr__(self):
+        """ Returns a string representation of the slab object."""
         return f"<Slab #{self.ifc_obj.id()}>"
 

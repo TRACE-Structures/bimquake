@@ -10,7 +10,29 @@ import ifcopenshell.geom
 
 
 class IfcObjectProperties:
+    """ Class representing the properties of an IFC object. 
+
+        This class extracts and stores both general and material-specific properties
+        for different types of IFC objects, such as slabs and walls. It provides
+        methods to access and display these properties. 
+        
+        Attributes
+        ----------
+        ifc_obj : ifcopenshell.entity_instance
+            The IFC object instance.
+        materials : list
+            List of dictionaries containing associated material properties.
+        general : list
+            List of dictionaries containing general IFC properties. """
+    
     def __init__(self, ifc_obj):
+        """ Initializes the IfcObjectProperties instance.
+
+            Parameters
+            ----------
+            ifc_obj : ifcopenshell.entity_instance
+                The IFC object instance. """
+        
         self.ifc_obj = ifc_obj
         self.materials = self.get_associated_material_properties() # List of dict of associated materials with" propertiess", that is a list of dict of ifc single properties)
         self.general = self.get_properties() # List of dict of IFCSingle properties (name, value, unit, dexription..)
@@ -44,6 +66,11 @@ class IfcObjectProperties:
               setattr(self, q_name, self.find_general_property_val(attr2prop(q_name)))
            
     def show(self):
+        """ Displays the properties of the IFC object.
+
+            For slabs, it shows load direction, load distribution, and various load categories.
+            For walls, it shows material properties and various load categories. """
+        
         categories = ["A", "B", "C", "D", "E", "F", "G", "H"]
         if self.ifc_obj.is_a("IfcSlab"):
           for attr in ["load_direction",
@@ -62,6 +89,17 @@ class IfcObjectProperties:
               print(f"{attr}: {val} [{unit}]")
 
     def map_attribute_to_ifc_property(self, attr_name):
+        """ Maps an attribute name to its corresponding IFC property name.
+
+            Parameters
+            ----------
+            attr_name : str
+                The attribute name to be mapped.
+
+            Returns
+            -------
+            ifc_property_name : str or None
+                The corresponding IFC property name, or None if not found. """
         map = {
             "load_direction" : "LoadDirection",
             "load_distribution": "LoadDistribution",
@@ -83,9 +121,22 @@ class IfcObjectProperties:
             "G": "ShearModulus",
             "nu": "PoissonRatio"
         }
-        return map.get(attr_name, None)
+        ifc_property_name = map.get(attr_name, None)
+        return ifc_property_name
 
     def get_default_unit(self, prop_name):
+        """ Gets the default unit for a given IFC property.
+
+            Parameters
+            ----------
+            prop_name : str
+                The name of the IFC property.
+
+            Returns
+            -------
+            unit : list or None
+                The default unit(s) for the given IFC property, or None if not found. """
+        
         Pa =  ["Pa", "N/sqm", "N/m^2", "N/m2", None]
         def_units = {
             "LoadDirection": ["degree", None],
@@ -111,11 +162,31 @@ class IfcObjectProperties:
         return unit
 
     def get_q_dict(self):
+        """ Gets a dictionary of variable load categories and their corresponding values.
+
+            Returns
+            -------
+            q_dict : dict
+                A dictionary where keys are load categories (A-H) and values are the corresponding attribute values. """
+        
         categories = ["A", "B", "C", "D", "E", "F", "G", "H"]
         q_dict = {cat_i: getattr(self, f"q_{cat_i}")  for cat_i in categories}
         return q_dict
 
     def find_material_property_val(self, property_name):
+        """ Finds the value of a material property for the IFC object.
+
+            Parameters
+            ----------
+            property_name : str
+                The name of the material property to find.
+
+            Returns
+            -------
+            value : float, int, list, or None
+                The value of the material property. If multiple materials have the property, the average is returned.
+                Returns None if the property is not found. """
+        
         prop = []
         for mat_i in self.materials:
           prop_i = self.find_property(mat_i["Properties"], property_name)
@@ -133,6 +204,20 @@ class IfcObjectProperties:
           return np.mean(prop)
 
     def find_general_property_val(self, property_name, verbose=True):
+        """ Finds the value of a general property for the IFC object.
+
+            Parameters
+            ----------
+            property_name : str
+                The name of the general property to find.
+            verbose : bool, optional
+                If True, prints a message when the property is not found. Default is True.
+
+            Returns
+            -------
+            value : float, int, list, or None
+                The value of the general property, or None if the property is not found. """
+        
         prop = self.find_property(self.general, property_name)
         if prop is None:
           if verbose and ("VariableLoadCategory" not in property_name and "PermanentNonStructuralLoad"!= property_name):
@@ -143,6 +228,20 @@ class IfcObjectProperties:
         # return prop
 
     def find_property(self, props, property_name):
+        """ Finds a property within a list of properties.
+
+            Parameters
+            ----------
+            props : list
+                A list of property dictionaries to search.
+            property_name : str
+                The name of the property to find.
+
+            Returns
+            -------
+            prop : dict or None
+                The property dictionary if found, otherwise None. """
+        
         for prop in props:
             if prop["Name"] == property_name:
                 unit = prop["Unit"]
@@ -157,6 +256,25 @@ class IfcObjectProperties:
         return None
 
     def is_property_declared(self, property_name):
+        """ Checks if a property is declared for the IFC object.
+
+            Parameters
+            ----------
+            property_name : str
+                The name of the property to check.
+
+            Returns
+            -------
+            declared : bool
+                True if the property is declared, False otherwise.
+            property_type : str or None
+                "General Property" if the property is found in general properties,
+                "Material Property" if found in material properties, None otherwise.
+            property_details : dict, list of tuples, or None
+                The property details if found. For general properties, this is a dictionary.
+                For material properties, this is a list of tuples (material name, property dictionary).
+                None if the property is not found. """
+        
         # Check if property is in general properties
         prop = self.find_property(self.general, property_name)
         # Otherwise check if its in material properties
@@ -178,6 +296,18 @@ class IfcObjectProperties:
             return True, "General Property", prop
 
     def get_material_properties(self, mat):
+        """ Gets the material properties of a given material.
+
+            Parameters
+            ----------
+            mat : IfcMaterial
+                The material object to retrieve properties from.
+
+            Returns
+            -------
+            mat_props_list : list of dict
+                A list of dictionaries containing the material properties. """
+        
         mat_props_list = []
         if hasattr(mat, "HasProperties"):
             for mat_prop in mat.HasProperties:
@@ -189,24 +319,43 @@ class IfcObjectProperties:
         return mat_props_list
 
     def ifc_property_to_dict(self, prop):
-      if prop.is_a("IfcPropertySingleValue"):
-          return {
-              "Name": prop.Name,
-              "Value": prop.NominalValue.wrappedValue,
-              "Unit": prop.Unit,
-              "Description": prop.Description
-          }
-      elif prop.is_a("IfcPropertyBoundedValue"):
-          return {
-              "Name": prop.Name,
-              "Value": prop.SetPointValue,
-              "LowerBound": prop.LowerBoundValue,
-              "UpperBound": prop.UpperBoundValue,
-              "Unit": prop.Unit,
-              "Description": prop.Description
-          }
+        """ Converts an IFC property to a dictionary representation.
+
+            Parameters
+            ----------
+            prop : IfcPropertySingleValue or IfcPropertyBoundedValue
+                The IFC property object to convert.
+
+            Returns
+            -------
+            prop_dict : dict
+                A dictionary containing the property details. """
+        
+        if prop.is_a("IfcPropertySingleValue"):
+            return {
+                "Name": prop.Name,
+                "Value": prop.NominalValue.wrappedValue,
+                "Unit": prop.Unit,
+                "Description": prop.Description
+            }
+        elif prop.is_a("IfcPropertyBoundedValue"):
+            return {
+                "Name": prop.Name,
+                "Value": prop.SetPointValue,
+                "LowerBound": prop.LowerBoundValue,
+                "UpperBound": prop.UpperBoundValue,
+                "Unit": prop.Unit,
+                "Description": prop.Description
+            }
 
     def get_associated_material_properties(self):
+        """ Retrieves the associated material properties for the IFC object.
+
+            Returns
+            -------
+            materials : list of dict or None
+                A list of dictionaries containing the material properties, or None if no materials are associated. """
+        
         materials = None 
         for assoc in self.ifc_obj.HasAssociations:
             if assoc.is_a("IfcRelAssociatesMaterial"):
@@ -254,6 +403,13 @@ class IfcObjectProperties:
         return materials
 
     def get_properties(self):
+        """ Retrieves the general properties of the IFC object.
+
+            Returns
+            -------
+            props : list of dict
+                A list of dictionaries containing the general properties. """
+        
         props = []
         for prop_i in self.ifc_obj.IsDefinedBy:
             if prop_i.is_a("IfcRelDefinesByProperties"):
@@ -269,6 +425,13 @@ class IfcObjectProperties:
         return props
 
     def show_ifc_general_and_material_properties(self):
+        """ Displays the general and material properties of the IFC object in a readable format. 
+        
+            Raises
+            ------
+            Exception
+                If there is an error while retrieving or displaying the properties. """
+
         try:
             mat_summary = []
             for mat_i in self.materials:
@@ -298,7 +461,42 @@ class IfcObjectProperties:
         
 # Define class of wall created from the IFC product
 class IfcObject(SolidObject):
+    """ Represents an IFC object (e.g., wall, slab) with its geometric and property information. 
+    
+        Attributes
+        ----------
+
+        id : int
+            The unique identifier of the IFC object.
+        name : str
+            The name of the IFC object (e.g., "Wall 123").
+        shape : ifcopenshell.geom.Shape
+            The geometric shape of the IFC object.
+        points : np.ndarray
+            The global coordinates of the points defining the object's geometry.
+        faces : np.ndarray
+            The faces of the object's geometry.
+        origin : np.ndarray
+            The origin of the local coordinate system.
+        x_axis : np.ndarray
+            The x-axis of the local coordinate system.
+        y_axis : np.ndarray
+            The y-axis of the local coordinate system.
+        z_axis : np.ndarray
+            The z-axis of the local coordinate system.
+        properties : IfcObjectProperties
+            The general and material properties of the IFC object.
+        floor : int or None
+            The floor number the object belongs to, if applicable. """
+    
     def __init__(self, ifc_object):
+        """ Initializes an IfcObject instance with its geometric and property information. 
+
+            Parameters
+            ----------
+            ifc_object : ifcopenshell.entity_instance
+                The IFC object to be represented. """
+        
         self.ifc_obj = ifc_object
         self.id = self.ifc_obj.id()
         if ifc_object.is_a("IfcWall"):
@@ -313,31 +511,88 @@ class IfcObject(SolidObject):
         self.floor = None
 
     def get_shape_from_ifc(self):
+        """ Retrieves the geometric shape of the IFC object using ifcopenshell.geom.
+
+            Returns
+            -------
+            shape : ifcopenshell.geom.Shape
+                The geometric shape of the IFC object. """
         settings = ifcopenshell.geom.settings()
         settings.set(settings.USE_WORLD_COORDS, True)
         shape = ifcopenshell.geom.create_shape(settings, self.ifc_obj)
         return shape
 
     def get_points_from_shape(self):
+        """ Retrieves the global coordinates of the points defining the object's geometry.
+
+            Returns
+            -------
+            points : np.ndarray
+                The global coordinates of the points defining the object's geometry. """
         points = np.array(self.shape.geometry.verts).reshape(-1,3)
         r_points = np.round(points, decimals=4)
         _, u_ind = np.unique(r_points, axis=0, return_index=np.True_)
-        return points[sorted(u_ind)]
+        sorted_points = points[sorted(u_ind)]
+        return sorted_points
 
     def set_points(self, points):
+        """ Sets the global coordinates of the points defining the object's geometry.
+
+            Parameters
+            ----------
+            points : np.ndarray
+                The global coordinates of the points defining the object's geometry. """
+        
         self.points = points
 
     def set_floor(self, floor):
+        """ Sets the floor number the object belongs to.
+
+            Parameters
+            ----------
+            floor : int
+                The floor number the object belongs to. """
+        
         self.floor = floor
 
     def get_faces_from_shape(self):
+        """ Retrieves the indices of the faces defining the object's geometry.
+
+            Returns
+            -------
+            faces : np.ndarray
+                The indices of the faces defining the object's geometry. """
+        
         faces = np.array(self.shape.geometry.faces).reshape(-1, 3)
         return faces
 
     def set_faces(self, faces):
+        """ Sets the indices of the faces defining the object's geometry.
+
+            Parameters
+            ----------
+            faces : np.ndarray
+                The indices of the faces defining the object's geometry. """
+
         self.faces = faces
 
     def get_index_of_corner_points(self, points=None, tol=0.05):
+        """ Retrieves the indices of the corner points of the object's geometry.
+
+            Parameters
+            ----------
+            points : np.ndarray, optional
+                The global coordinates of the points defining the object's geometry. If None, uses self.points.
+            tol : float, optional
+                The tolerance for determining corner points. Default is 0.05.
+
+            Returns
+            -------
+            ind_start_face : np.ndarray
+                The indices of the corner points of the start face.
+            ind_end_face : np.ndarray
+                The indices of the corner points of the end face. """
+        
         if points is None:
           points = self.points
         # The following function only works if front and end faces have only 4 points
@@ -355,6 +610,20 @@ class IfcObject(SolidObject):
         return ind_start_face, ind_end_face
 
     def get_bounding_box_corner_indices(self, points=None, tol=0.05):
+        """ Retrieves the indices of the corner points of the object's bounding box.
+
+            Parameters
+            ----------
+            points : np.ndarray, optional
+                The global coordinates of the points defining the object's geometry. If None, uses self.points.
+            tol : float, optional
+                The tolerance for determining corner points. Default is 0.05.
+
+            Returns
+            -------
+            ind : np.ndarray
+                The indices of the corner points of the object's bounding box. """
+        
         #Get bounding box corner points
         if points is None:
           points = self.points
@@ -375,6 +644,20 @@ class IfcObject(SolidObject):
         return np.array(ind, dtype=int)
 
     def get_bounding_box_points(self, coord='local', points=None):
+        """ Retrieves the corner points of the object's bounding box.
+
+            Parameters
+            ----------
+            coord : str, optional
+                The coordinate system in which to return the bounding box points. Can be 'local' or 'global'. Default is 'local'.
+            points : np.ndarray, optional
+                The global coordinates of the points defining the object's geometry. If None, uses self.points.
+
+            Returns
+            -------
+            bbox_points : np.ndarray
+                The coordinates of the corner points of the object's bounding box. """
+        
         if points is None:
           points = self.points
         local_points = self.transform_to_local(points)
@@ -391,7 +674,19 @@ class IfcObject(SolidObject):
 
     # Function to get the local x, y, z direction of the wall
     def get_origin_and_local_axes(self):
-        """Returns the wall's local X, Y, Z unit vectors and origin as numpy arrays."""
+        """ Returns the wall's local X, Y, Z unit vectors and origin as numpy arrays.
+        
+            Returns
+            -------
+            origin : np.ndarray
+                The origin of the wall's local coordinate system.
+            x_dir : np.ndarray
+                The local X unit vector.
+            y_dir : np.ndarray
+                The local Y unit vector.
+            z_dir : np.ndarray
+                The local Z unit vector. """
+        
         placement = self.ifc_obj.ObjectPlacement.RelativePlacement
         origin = np.array(placement.Location.Coordinates)
 
@@ -410,17 +705,52 @@ class IfcObject(SolidObject):
         return origin, x_dir, y_dir, z_dir
 
     def get_transformation_matrix(self):
+        """ Returns the 3x3 transformation matrix from world coordinates to the wall's local coordinates.
+
+            Returns
+            -------
+            TR : np.ndarray
+                The 3x3 transformation matrix. """
+        
         # Build transformation matrix (world → local)
         TR = np.vstack([self.x_axis, self.y_axis, self.z_axis]).T  # 3x3
         return TR
 
     def get_bottom_height(self):
-        return np.min(self.points[:, 2])
+        """ Returns the bottom height (minimum Z coordinate) of the wall.
+
+            Returns
+            -------
+            bottom_height : float
+                The bottom height of the wall. """
+
+        bottom_height = np.min(self.points[:, 2])
+        return bottom_height
 
     def get_top_height(self):
-        return np.max(self.points[:, 2])
+        """ Returns the top height (maximum Z coordinate) of the wall.
+
+            Returns
+            -------
+            top_height : float
+                The top height of the wall. """
+
+        top_height = np.max(self.points[:, 2])
+        return top_height
 
     def transform_to_local(self, global_coords):
+        """ Transforms global coordinates to the wall's local coordinate system.
+
+            Parameters
+            ----------
+            global_coords : np.ndarray
+                The coordinates in the global/world coordinate system.
+
+            Returns
+            -------
+            local_coords : np.ndarray
+                The coordinates in the wall's local coordinate system. """
+        
         # Build transformation matrix (world → local)
         TR = self.get_transformation_matrix()
         # Project into wall space (@ is the same as np.matmul)
@@ -428,6 +758,18 @@ class IfcObject(SolidObject):
         return local_coords
 
     def transform_to_global(self, local_coords):
+        """ Transforms local coordinates of the wall to the global coordinate system.
+
+            Parameters
+            ----------
+            local_coords : np.ndarray
+                The coordinates in the wall's local coordinate system.
+
+            Returns
+            -------
+            global_coords : np.ndarray
+                The coordinates in the global/world coordinate system. """
+        
         # Build transformation matrix (world → local)
         TR = self.get_transformation_matrix()
         # Project into wall space (@ is the same as np.matmul)
@@ -437,6 +779,17 @@ class IfcObject(SolidObject):
         # Function to get the main properties of the object
 
     def get_dimensions(self, points=None):
+        """ Returns the dimensions and center point of the wall's bounding box.
+
+            Parameters
+            ----------
+            points : np.ndarray, optional
+                The coordinates of the wall's points. If None, uses self.points.
+
+            Returns
+            -------
+            dimensions : dict
+                A dictionary containing the length, width, height, and center point coordinates of the wall's bounding box. """
         if points is None:
             points = self.points
 
@@ -450,7 +803,7 @@ class IfcObject(SolidObject):
         center_local = (min_coords + max_coords) / 2
         center_global = self.transform_to_global(center_local)  # Back to world coords
 
-        return {
+        dimensions = {
             "Length": size[0],  # X in local space
             "Width": size[1],   # Y in local space
             "Height": size[2],  # Z in local space
@@ -458,8 +811,22 @@ class IfcObject(SolidObject):
             "CenterPointY": center_global[1],
             "CenterPointz": center_global[2]
             }
+        
+        return dimensions
 
     def get_volume(self, points=None):
+        """ Returns the volume of the wall's bounding box.
+
+            Parameters
+            ----------
+            points : np.ndarray, optional
+                The coordinates of the wall's points. If None, uses self.points.
+
+            Returns
+            -------
+            V : float
+                The volume of the wall's bounding box. """
+        
         if points is None:
             points = self.points
 
@@ -474,6 +841,18 @@ class IfcObject(SolidObject):
         return V
 
     def get_upper_face_area(self, points=None):
+        """ Returns the area of the upper face of the wall's bounding box.
+
+            Parameters
+            ----------
+            points : np.ndarray, optional
+                The coordinates of the wall's points. If None, uses self.points.
+
+            Returns
+            -------
+            A : float
+                The area of the upper face of the wall's bounding box. """
+        
         if points is None:
             points = self.points
 
@@ -488,6 +867,20 @@ class IfcObject(SolidObject):
         return A
 
     def sort_points_by_coordinates(self, points = None, sort_by_axis="xzy"):
+        """ Sorts the points by their coordinates.
+
+            Parameters
+            ----------
+            points : np.ndarray, optional
+                The coordinates of the wall's points. If None, uses self.points.
+            sort_by_axis : str, optional
+                The order of axes to sort by. Default is "xzy".
+
+            Returns
+            -------
+            ind_sort : np.ndarray
+                The indices that would sort the points according to the specified axis order. """
+        
         if points is None:
             points = self.points
 
@@ -502,6 +895,20 @@ class IfcObject(SolidObject):
         return ind_sort
 
     def sort_points_by_local_coordinates(self, points=None, sort_by_axis="xzy"):
+        """ Sorts the points by their local coordinates.
+
+            Parameters
+            ----------
+            points : np.ndarray, optional
+                The coordinates of the wall's points. If None, uses self.points.
+            sort_by_axis : str, optional
+                The order of axes to sort by. Default is "xzy".
+
+            Returns
+            -------
+            ind_sort : np.ndarray
+                The indices that would sort the points according to the specified axis order in local coordinates. """
+
         if points is None:
             points = self.points
 
@@ -512,6 +919,13 @@ class IfcObject(SolidObject):
         return ind_sort
 
     def get_angle_of_axis(self):
+        """ Returns the angle of the local x-axis projected onto the XY plane.
+
+            Returns
+            -------
+            angle_deg : float
+                The angle of the local x-axis in degrees, measured from the global X-axis. """
+        
         x_axis = self.x_axis
         # Calculate angle
         # Project to XY plane
@@ -530,12 +944,35 @@ class IfcObject(SolidObject):
         return angle_deg
 
     def get_mesh(self, color='blue', opacity=0.8, name=None):
+        """ Returns a mesh representation of the object.
+
+            Parameters
+            ----------
+            color : str, optional
+                The color of the mesh. Default is 'blue'.
+            opacity : float, optional
+                The opacity of the mesh. Default is 0.8.
+            name : str, optional
+                The name of the mesh. If None, uses the object's name.
+
+            Returns
+            -------
+            mesh : trimesh.Trimesh
+                The mesh representation of the object. """
+        
         if name is None:
           name = f"{self.name}"
         mesh = super().get_mesh(name=name, color=color, opacity=opacity)
         return mesh
 
     def get_plotly_local_coord(self):
+        """ Returns a Plotly cone representation of the local coordinate axes.
+
+            Returns
+            -------
+            arrow_x_z : plotly.graph_objects.Cone
+                A Plotly cone object representing the local x and z axes. """
+        
         origin, x_dir, y_dir, z_dir = self.get_origin_and_local_axes()
         x_o, y_o, z_o = origin
 
@@ -556,5 +993,12 @@ class IfcObject(SolidObject):
         return arrow_x_z
 
     def __repr__(self):
+        """ Returns a string representation of the IFC object.
+
+            Returns
+            -------
+            repr_str : str
+                A string representation of the IFC object, including its type and ID. """
+        
         return f"<IFC object {type(self.ifc_obj)} #{self.ifc_obj.id()}>"
 

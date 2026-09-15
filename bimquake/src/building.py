@@ -10,11 +10,45 @@ from .EFM import EquivalentFrameModel
 from .floor import Floor
 
 class IfcObjectSet(SolidObjectSet):
+      """ A set of IFC objects, providing methods to add, filter, and retrieve them. 
+      
+          Attributes
+          ----------
+          _seen_ids : set
+              A set to keep track of seen IFC object IDs to avoid duplicates. """
+      
       def __init__(self):
+        """ Initializes the Building object.
+
+            Parameters
+            ----------
+            ifc_file : ifcopenshell.file
+                The IFC file containing the building information.
+            only_geometry : bool, optional
+                If True, only geometric information is collected. Default is False.
+            verbose : bool, optional
+                If True, prints verbose information during initialization. Default is False. """
+        
         super().__init__()
         self._seen_ids = set()
 
       def add_objects(self, obj_list,  only_geometry=False, verbose=False):
+        """ Adds a list of IFC objects to the set.
+
+            Parameters
+            ----------
+            obj_list : list
+                A list of IFC objects to add.
+            only_geometry : bool, optional
+                If True, only geometric information is collected. Default is False.
+            verbose : bool, optional
+                If True, prints verbose information during addition. Default is False.
+
+            Returns
+            -------
+            objects : list
+                The list of objects after addition. """
+        
         if not isinstance(obj_list, list):
           obj_list = [obj_list]
         for obj in obj_list:
@@ -22,6 +56,17 @@ class IfcObjectSet(SolidObjectSet):
         return self.objects
 
       def add_object(self, obj, only_geometry=False, verbose=False):
+        """ Adds a single IFC object to the set.
+
+            Parameters
+            ----------
+            obj : ifcopenshell.entity_instance
+                The IFC object to add.
+            only_geometry : bool, optional
+                If True, only geometric information is collected. Default is False.
+            verbose : bool, optional
+                If True, prints verbose information during addition. Default is False. """
+        
         gid = obj.GlobalId
         if gid in self._seen_ids:
             print(f"Duplicate ID: {gid}")
@@ -43,6 +88,20 @@ class IfcObjectSet(SolidObjectSet):
 ################################################################################
 
       def filter_objects_by_type(self, ifc_type, objs=None):
+          """ Filters objects by their IFC type.
+
+            Parameters
+            ----------
+            ifc_type : str
+                The IFC type to filter by.
+            objs : list, optional
+                The list of objects to filter. Default is None, which uses all objects.
+
+            Returns
+            -------
+            filtered_objects : list
+                The list of objects matching the specified IFC type. """
+          
           if objs is None:
             objs = self.objects
           filtered_objects = [obj for obj in objs if obj.ifc_obj.is_a(ifc_type)]
@@ -50,6 +109,20 @@ class IfcObjectSet(SolidObjectSet):
 
 
       def find_object_by_id(self, id, objs=None):
+          """ Finds an object by its IFC ID.
+
+            Parameters
+            ----------
+            id : str
+                The IFC ID of the object to find.
+            objs : list, optional
+                The list of objects to search. Default is None, which uses all objects.
+
+            Returns
+            -------
+            obj : IfcObject or None
+                The object with the specified ID, or None if not found. """
+          
           if objs is None:
               objs = self.objects
           for obj in objs:
@@ -63,6 +136,20 @@ class IfcObjectSet(SolidObjectSet):
   ################################################################################
 
       def get_all_meshes_highlighting_elements_with_id(self, elem_id=[], objs=None):
+          """ Generates meshes for all objects, highlighting specified elements by their IDs.
+
+            Parameters
+            ----------
+            elem_id : list, optional
+                A list of IFC IDs to highlight. Default is an empty list.
+            objs : list, optional
+                The list of objects to generate meshes for. Default is None, which uses all objects.
+
+            Returns
+            -------
+            meshes : list
+                The list of generated meshes, with highlighted elements in orange and others in grey. """
+          
           meshes = []
           if not isinstance(elem_id, list):
               elem_id = [elem_id]
@@ -81,6 +168,22 @@ class IfcObjectSet(SolidObjectSet):
           return meshes
 
       def get_meshes(self, objs=None, color=None, opacity=0.8):
+          """ Generates meshes for the specified objects.
+
+            Parameters
+            ----------
+            objs : list, optional
+                The list of objects to generate meshes for. Default is None, which uses all objects.
+            color : str, optional
+                The color to apply to the meshes. Default is None.
+            opacity : float, optional
+                The opacity of the meshes. Default is 0.8.
+
+            Returns
+            -------
+            meshes : list
+                The list of generated meshes. """
+          
           if objs is None:
               objs = self.objects
           meshes = []
@@ -97,7 +200,39 @@ class IfcObjectSet(SolidObjectSet):
 ################################################################################
 
 class Building(IfcObjectSet):
+    """ Represents a building and provides methods to manage and analyze its IFC objects. 
+    
+        Attributes
+        ----------
+        ifc_file : ifcopenshell.file
+            The IFC file associated with the building.
+        _seen_ids : set
+            A set of seen IFC IDs to avoid duplicates.
+        floor_wall_dict : dict
+            A dictionary mapping floor levels to walls.
+        floor_heights : list
+            A list of floor heights.
+        num_floors : int
+            The number of floors in the building.
+        slab_wall_links_df : pandas.DataFrame
+            A DataFrame containing links between slabs and supporting walls.
+        wall_wall_links_df : pandas.DataFrame
+            A DataFrame containing links between walls and supporting walls.
+        objects : list
+            The list of IFC objects in the building. """
+    
     def __init__(self, ifc_file, only_geometry=False, verbose=False):
+        """ Initializes a Building instance.
+
+            Parameters
+            ----------
+            ifc_file : ifcopenshell.file
+                The IFC file associated with the building.
+            only_geometry : bool, optional
+                If True, only geometry-related objects are collected. Default is False.
+            verbose : bool, optional
+                If True, prints progress messages. Default is False. """
+        
         super().__init__()
         self.ifc_file = ifc_file
         self._seen_ids = set()
@@ -136,6 +271,22 @@ class Building(IfcObjectSet):
 
 
     def collect_ifc_objects(self, ifc_type="IfcProduct", only_geometry=False, verbose=False):
+      """ Collects IFC objects of a specified type.
+
+            Parameters
+            ----------
+            ifc_type : str, optional
+                The type of IFC objects to collect. Default is "IfcProduct".
+            only_geometry : bool, optional
+                If True, only geometry-related objects are collected. Default is False.
+            verbose : bool, optional
+                If True, prints progress messages. Default is False.
+
+            Returns
+            -------
+            objects : list
+                The list of collected IFC objects. """
+      
       for obj in self.ifc_file.by_type(ifc_type):
           self.add_object(obj, only_geometry=only_geometry, verbose=verbose)
       return self.objects
@@ -146,6 +297,20 @@ class Building(IfcObjectSet):
 ################################################################################
 
     def filter_walls_by_floor(self, floor, objs=None):
+        """ Filters walls by the specified floor.
+
+            Parameters
+            ----------
+            floor : int
+                The floor level to filter walls by.
+            objs : list, optional
+                The list of objects to filter. Default is None, which uses all objects.
+
+            Returns
+            -------
+            filtered_objects : list
+                The list of walls on the specified floor. """
+        
         if objs is None:
           objs = self.objects
         walls = self.filter_objects_by_type("IfcWall", objs=objs)
@@ -153,12 +318,41 @@ class Building(IfcObjectSet):
         return filtered_objects
 
     def filter_objects_by_floor(self, floor, objs=None):
+        """ Filters objects by the specified floor.
+
+            Parameters
+            ----------
+            floor : int
+                The floor level to filter objects by.
+            objs : list, optional
+                The list of objects to filter. Default is None, which uses all objects.
+
+            Returns
+            -------
+            filtered_objects : list
+                The list of objects on the specified floor. """
         if objs is None:
           objs = self.objects
         filtered_objects = [obj for obj in objs if obj.floor == floor]
         return filtered_objects
 
     def filter_objects(self, floor=None, type=None, objs=None):
+        """ Filters objects by the specified floor and/or type.
+
+            Parameters
+            ----------
+            floor : int, optional
+                The floor level to filter objects by. Default is None.
+            type : str, optional
+                The type of IFC objects to filter by. Default is None.
+            objs : list, optional
+                The list of objects to filter. Default is None, which uses all objects.
+
+            Returns
+            -------
+            filtered_objects : list
+                The list of objects matching the specified criteria. """
+        
         if objs is None:
           objs = self.objects
         if floor is not None:
@@ -173,6 +367,22 @@ class Building(IfcObjectSet):
 
 
     def get_mesh_by_type(self, obj_type, opacity=0.8, objs=None):
+        """ Generates meshes for objects of the specified type.
+
+            Parameters
+            ----------
+            obj_type : str
+                The type of IFC objects to generate meshes for.
+            opacity : float, optional
+                The opacity of the generated meshes. Default is 0.8.
+            objs : list, optional
+                The list of objects to filter. Default is None, which uses all objects.
+
+            Returns
+            -------
+            meshes : list
+                The list of generated meshes for the specified object type. """
+        
         filtered_objects = self.filter_objects_by_type(obj_type, objs=objs)
         meshes = []
         for obj in filtered_objects:
@@ -180,6 +390,22 @@ class Building(IfcObjectSet):
         return meshes
 
     def get_mesh_of_wall_partitions(self, mode="with_loading_elements", opacity=0.8, objs=None):
+        """ Generates meshes for wall partitions.
+
+            Parameters
+            ----------
+            mode : str, optional
+                The mode for generating meshes. Default is "with_loading_elements".
+            opacity : float, optional
+                The opacity of the generated meshes. Default is 0.8.
+            objs : list, optional
+                The list of objects to filter. Default is None, which uses all objects.
+
+            Returns
+            -------
+            WP_meshes : list
+                The list of generated meshes for wall partitions. """
+        
         WP_meshes = []
         if objs is None:
           objs = self.objects
@@ -190,11 +416,45 @@ class Building(IfcObjectSet):
         return WP_meshes
 
     def get_mesh_by_floor(self, floor, color=None, opacity=0.8, objs=None):
+        """ Generates meshes for objects on the specified floor.
+
+            Parameters
+            ----------
+            floor : int
+                The floor level to generate meshes for.
+            color : any, optional
+                The color of the generated meshes. Default is None.
+            opacity : float, optional
+                The opacity of the generated meshes. Default is 0.8.
+            objs : list, optional
+                The list of objects to filter. Default is None, which uses all objects.
+
+            Returns
+            -------
+            meshes : list
+                The list of generated meshes for the specified floor. """
+        
         filtered_objects = self.filter_objects_by_floor(floor, objs=objs)
         meshes = self.get_meshes(objs=filtered_objects, color=color, opacity=opacity)
         return meshes
 
     def get_mesh_of_slab_partitions(self, color=None, opacity = 0.8, objs=None):
+        """ Generates meshes for slab partitions.
+
+            Parameters
+            ----------
+            color : any, optional
+                The color of the generated meshes. Default is None.
+            opacity : float, optional
+                The opacity of the generated meshes. Default is 0.8.
+            objs : list, optional
+                The list of objects to filter. Default is None, which uses all objects.
+
+            Returns
+            -------
+            meshes : list
+                The list of generated meshes for slab partitions. """
+        
         slabs = self.filter_objects_by_type("IfcSlab", objs=objs)
         
         meshes = []
@@ -208,6 +468,8 @@ class Building(IfcObjectSet):
 ################################################################################
 
     def set_floor_ids_of_wall_partitions(self):
+        """ Sets the floor IDs for wall partitions based on their supporting elements."""
+
         WP_counter = 0
         for floor in self.floor_wall_dict:
           walls = self.filter_walls_by_floor(floor)
@@ -238,6 +500,8 @@ class Building(IfcObjectSet):
               # by several WPs. If this is the case, it can happen that two WPs get the same numbering
 
     def set_transmitting_distributed_loads(self):
+        """ Sets the transmitting distributed loads for walls based on their supporting elements.""" 
+
         # Loop over floors from top to bottom
         for floor in reversed([floor for floor in self.floor_wall_dict]):
           walls = self.filter_walls_by_floor(floor)
@@ -246,6 +510,13 @@ class Building(IfcObjectSet):
 
 
     def get_slab_wall_links(self):
+        """ Gets the links between slabs and walls.
+
+            Returns
+            -------
+            slab_wall_links_df : pandas.DataFrame
+                The DataFrame containing the links between slabs and walls. """
+        
         if self.slab_wall_links_df is not None:
             return self.slab_wall_links_df
 
@@ -284,6 +555,13 @@ class Building(IfcObjectSet):
 
 
     def get_wall_slab_links(self):
+        """ Gets the links between walls and slabs.
+
+            Returns
+            -------
+            wall_slab_links : pandas.DataFrame
+                The DataFrame containing the links between walls and slabs. """
+        
         df = self.slab_wall_links_df
         wall_slab_links = df.groupby("LoadedWallId").agg({
             "SlabId": lambda x: sorted(list(set(x))),
@@ -293,6 +571,13 @@ class Building(IfcObjectSet):
 
 
     def get_wall_below_wall_links(self):
+        """ Gets the links between walls and the walls below them.
+
+            Returns
+            -------
+            wall_below_wall_links : pandas.DataFrame
+                The DataFrame containing the links between walls and the walls below them. """
+        
         if self.wall_wall_links_df is not None:
             return self.wall_wall_links_df
         W_W_links = []
@@ -335,6 +620,13 @@ class Building(IfcObjectSet):
         return pd.DataFrame(W_W_links)
 
     def get_WP_WP_links(self):
+        """ Gets the links between wall partitions and the wall partitions they support.
+
+            Returns
+            -------
+            df_WP_WP : pandas.DataFrame
+                The DataFrame containing the links between wall partitions and the wall partitions they support. """
+        
         records = []
         for floor in reversed([floor for floor in self.floor_wall_dict if floor != 0]):
           walls = self.filter_walls_by_floor(floor)
@@ -357,6 +649,8 @@ class Building(IfcObjectSet):
 ################################################################################
     
     def create_wall_partitions(self):
+        """ Creates wall partitions for all walls in the building."""
+
         # walls = self.filter_objects_by_type("IfcWall")
 
         # loop over floors from the bottom
@@ -366,6 +660,8 @@ class Building(IfcObjectSet):
             W_i.set_wall_partitions()
 
     def set_stress_in_wall_partitions(self):
+        """ Sets the stress in all wall partitions for all walls in the building."""
+
         # Loop over floors from top to bottom
         for floor in self.floor_wall_dict:
           walls = self.filter_walls_by_floor(floor)
@@ -373,6 +669,18 @@ class Building(IfcObjectSet):
             W_j.set_stress_in_wall_partitions()
 
     def get_wall_partition_properties(self, detailed=False):
+        """ Gets the properties of all wall partitions for all walls in the building.
+
+            Parameters
+            ----------
+            detailed : bool, optional
+                If True, includes detailed properties. Default is False.
+
+            Returns
+            -------
+            prop_dfs : dict
+                A dictionary of pandas.DataFrame objects containing the properties of wall partitions for each floor. """
+
         # initiate list of dataframes for the different floors
         prop_dfs = {}
         # Loop over floors from top to bottom
@@ -450,6 +758,18 @@ class Building(IfcObjectSet):
         return prop_dfs
 
     def generate_equivalent_frame_structural_model(self, mu=1.5):
+        """ Generates an equivalent frame structural model for the building.
+
+            Parameters
+            ----------
+            mu : float, optional
+                The partial safety factor for the structural model. Default is 1.5.
+
+            Returns
+            -------
+            frame : EquivalentFrameModel
+                The generated equivalent frame structural model. """
+        
         # initiate structural model
         frame = EquivalentFrameModel()
         # get floor properties
@@ -480,6 +800,13 @@ class Building(IfcObjectSet):
         return frame
 
     def generate_excel_from_EFM_props(self, filename):
+      """ Generates an Excel file containing the properties of wall partitions and floors.
+
+            Parameters
+            ----------
+            filename : str
+                The name of the Excel file to be created. """
+      
       wall_props = self.get_wall_partition_properties()
       floor_props = self.get_floor_properties()
       output_file = filename
@@ -502,6 +829,15 @@ class Building(IfcObjectSet):
 ################################################################################
 
     def group_walls_by_floor_get_floor_heights(self):
+        """ Groups walls by floor and calculates floor heights.
+
+            Returns
+            -------
+            floor_wall_dict : dict
+                A dictionary mapping floor numbers to lists of walls on that floor.
+            floor_hs_dict : dict
+                A dictionary mapping floor numbers to their bottom and top heights. """
+        
         walls = super().filter_objects_by_type("IfcWall")
         # Create array of [bottom_height, top_height]
         hs = []
@@ -548,6 +884,11 @@ class Building(IfcObjectSet):
 
 
     def set_floor_of_slabs(self):
+        """ Sets the floor number for all slabs in the building based on their heights. 
+
+            This method iterates through all slabs and assigns them to the appropriate floor
+            based on their top and bottom heights relative to the building's floor heights. """
+        
         slabs = super().filter_objects_by_type("IfcSlab")
         h_ground = self.floor_heights[0]["BottomHeight"]
         for S in slabs:
@@ -566,6 +907,13 @@ class Building(IfcObjectSet):
 #            compute floor weights
 ################################################################################
     def get_floor_weights(self):
+      """ Computes the total weight of each floor in the building.
+
+            Returns
+            -------
+            floor_weight_dict : dict
+                A dictionary mapping floor numbers to their total weights. """
+      
       slabs = self.filter_objects_by_type("IfcSlab")
       floor_weight_dict ={}
       for floor in self.floor_wall_dict:
@@ -589,6 +937,13 @@ class Building(IfcObjectSet):
       return floor_weight_dict
 
     def get_floor_properties(self):
+      """ Gets the properties of each floor in the building.
+
+            Returns
+            -------
+            floor_props_df : pandas.DataFrame
+                A DataFrame containing the properties of each floor, including height and weight. """
+      
       floor_props = {}
       floor_heights = self.floor_heights
       floor_weights = self.get_floor_weights()
@@ -600,4 +955,5 @@ class Building(IfcObjectSet):
       return pd.DataFrame(floor_props).T          
 
     def __repr__(self):
+        """ Returns a string representation of the IfcObjectSet, including the number of objects it contains. """
         return f"<IfcObjectSet with {len(self.objects)} objects>"
