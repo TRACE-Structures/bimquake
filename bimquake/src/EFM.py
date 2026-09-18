@@ -26,6 +26,18 @@ from .plot_utils import(
 
 
 def create_equivalent_frame_model_from_excel(sheets):
+    """ Create an EquivalentFrameModel instance from an Excel file represented as a dictionary of sheets. 
+    
+        Parameters
+        ----------
+        sheets : dict
+            Dictionary of Excel sheets, where keys are sheet names and values are pandas DataFrames.
+
+        Returns
+        -------
+        EFM : EquivalentFrameModel
+            The created equivalent frame model. """
+    
     # sheets = pd.read_excel(file_name, sheet_name=None)
     # Read floor properties sheet
     floor_props = sheets.parse("data")
@@ -53,14 +65,27 @@ def create_equivalent_frame_model_from_dataframes(
   floor_heights,  #numpy or list with heights in m
   floor_weights   #numpy or list with weights in kN
   ) -> 'EquivalentFrameModel':
-    """
-    Create an EquivalentFrame instance from a list of pandas DataFrames (one per floor).
-    Assumes the following columns in each DataFrame:
-        ["Wall", "L [m]", "w [m]", "H [m]", "Cx [m]", "Cy [m]", "α",
-         "σ [N/mm²]", "τ [N/mm²]", "fₘ [N/mm²]", "γ [kN/m³]", "E [N/mm²]", "G [N/mm²]"]
-    Floor heights are given in [m], weights in [kN]
-    All stresses will be converted to N/m² (Pa), densities to N/m³.
-    """
+    """ Create an EquivalentFrame instance from a list of pandas DataFrames (one per floor).
+        Assumes the following columns in each DataFrame:
+            ["Wall", "L [m]", "w [m]", "H [m]", "Cx [m]", "Cy [m]", "α",
+            "σ [N/mm²]", "τ [N/mm²]", "fₘ [N/mm²]", "γ [kN/m³]", "E [N/mm²]", "G [N/mm²]"]
+        Floor heights are given in [m], weights in [kN]
+        All stresses will be converted to N/m² (Pa), densities to N/m³.
+        
+        Parameters
+        ----------
+        props_dict : dict
+            Dictionary with keys 1,2,3... (floor numbers) and values of dataframes
+        floor_heights : list or numpy array
+            List or array with heights in m
+        floor_weights : list or numpy array
+            List or array with weights in kN
+
+        Returns
+        -------
+        eq_frame : EquivalentFrameModel
+            The created equivalent frame model. """
+    
     eq_frame = EquivalentFrameModel()
 
     for i, df in props_dict.items():   #loop over floor
@@ -116,11 +141,21 @@ def create_equivalent_frame_model_from_dataframes(
 
 
 def create_jsonld_from_equivalent_frame_model(efm: 'EquivalentFrameModel', title: str = "EFM model") -> dict:
-    """
-    Serialize an EquivalentFrameModel into a JSON-LD document, capturing the
-    same information as create_equivalent_frame_model_from_dataframes (floors,
-    walls, material/geometry/stress properties) plus the model's location.
-    """
+    """ Serialize an EquivalentFrameModel into a JSON-LD document, capturing the same information as create_equivalent_frame_model_from_dataframes (floors,
+        walls, material/geometry/stress properties) plus the model's location. 
+        
+        Parameters
+        ----------
+        efm : EquivalentFrameModel
+            The equivalent frame model to serialize.
+        title : str, optional
+            The title of the JSON-LD document (default is "EFM model").
+
+        Returns
+        -------
+        jsonld : dict
+            The JSON-LD representation of the equivalent frame model. """
+    
     floors_jsonld = []
     for floor in efm.floors:
         walls_jsonld = []
@@ -187,10 +222,18 @@ def create_jsonld_from_equivalent_frame_model(efm: 'EquivalentFrameModel', title
 
 
 def create_equivalent_frame_model_from_jsonld(jsonld: dict) -> 'EquivalentFrameModel':
-    """
-    Reconstruct an EquivalentFrameModel from a JSON-LD document produced by
-    create_jsonld_from_equivalent_frame_model.
-    """
+    """ Reconstruct an EquivalentFrameModel from a JSON-LD document produced by create_jsonld_from_equivalent_frame_model.
+
+        Parameters
+        ----------
+        jsonld : dict
+            The JSON-LD document representing the equivalent frame model.
+
+        Returns
+        -------
+        efm : EquivalentFrameModel
+            The reconstructed equivalent frame model. """
+    
     efm = EquivalentFrameModel()
     efm.latitude = jsonld.get("dkg:latitude")
     efm.longitude = jsonld.get("dkg:longitude")
@@ -246,7 +289,36 @@ def create_equivalent_frame_model_from_jsonld(jsonld: dict) -> 'EquivalentFrameM
 
 
 class EquivalentFrameModel:
+      """ Equivalent frame model representing a building with multiple floors and their properties.
+      
+        Attributes
+        ----------
+        floors : List[Floor]
+            The list of floors in the building.
+        latitude : float
+            The latitude of the building's location.
+        longitude : float
+            The longitude of the building's location.
+        soil_category : str
+            The soil category for seismic design.
+        service_life : float
+            The service life of the building.
+        topographic_category : str
+            The topographic category for seismic design.
+        importance_class : str
+            The importance class of the building.
+        behaviour_factor : float
+            The behaviour factor for seismic design.
+        paraTR : float
+            Seismic parameter paraTR.
+        gamma_m : float
+            Seismic parameter gamma_m.
+        derived_design_params : dict
+            Derived design parameters. """
+    
       def __init__(self):
+        """ Initialize an empty equivalent frame model."""
+
         self.floors: List[Floor] = []
          # --- location ---
         self.latitude = None
@@ -268,29 +340,35 @@ class EquivalentFrameModel:
 #------------------------------------------------------------------------------        
       @property
       def num_floors(self) -> float:
+          """ Get the number of floors in the building. """
           return len(self.floors)
 
       @property
       def total_height(self)-> float:
+          """ Get the total height of the building. """
           return sum(f_i.height for f_i in self.floors)
 
       @property
       def floor_heights(self)-> List:
+          """ Get the heights of all floors in the building. """
           return [f_i.height for f_i in self.floors]
 
       @property 
       def floor_heights_from_bottom(self) -> np.ndarray:   # alt_s
+       """ Get the cumulative heights of all floors from the bottom. """
        hs = self.floor_heights
        return np.cumsum(hs)       
 
       @property
-      def masses(self)-> np.ndarray:         
+      def masses(self)-> np.ndarray:
+        """ Get the masses of all floors in the building. """
         weights_r = [f_i.weight for f_i in self.floors]
         masses = np.array(weights_r)/9.81
         return masses
 
       @property
       def red_F(self) -> np.ndarray:    #distribution factor from top to bottom to distribute base shear force, sums to 1 
+        """ Get the distribution factor for each floor from top to bottom, used to distribute the base shear force. """
         alt_s = self.floor_heights_from_bottom
         Ms = self.masses
         red_F = Ms*alt_s/np.dot(alt_s, Ms)  #Ms*alt /\sum (Ms*alt)  #is this reversed?????
@@ -298,7 +376,8 @@ class EquivalentFrameModel:
 
       @property
       def _plot_bounds(self):
-        """Calculate the global boundaries (x_min, x_max, y_min, y_max) for the entire building."""
+        """ Calculate the global boundaries (x_min, x_max, y_min, y_max) for the entire building."""
+
         all_centers = []
         all_sizes = []
         for floor in self.floors:
@@ -321,6 +400,15 @@ class EquivalentFrameModel:
 #--------------------------------------------------------------------------
 
       def set_location(self, latitude: float, longitude: float):
+          """ Set the geographical location of the building. 
+          
+            Parameters
+            ----------
+            latitude : float
+                The latitude of the building's location.
+            longitude : float
+                The longitude of the building's location. """
+          
           self.latitude = latitude
           self.longitude = longitude
 
@@ -330,7 +418,19 @@ class EquivalentFrameModel:
           nominal_life: float,
           topographic_category: str,
           importance_class: str):
-          """Set seismic design parameters."""
+          """Set seismic design parameters.
+          
+            Parameters
+            ----------
+            soil_category : str
+                The soil category of the building's location.
+            nominal_life : float
+                The nominal life of the building.
+            topographic_category : str
+                The topographic category of the building's location.
+            importance_class : str
+                The importance class of the building. """
+          
           self.soil_category = soil_category
           self.service_life = nominal_life                      #???????
           self.topographic_category = topographic_category
@@ -352,11 +452,34 @@ class EquivalentFrameModel:
 #  Get-Set Seismic Loading (dependent on given sismic design params)
 #--------------------------------------------------------------------------
       def is_seismic_loading_input_valid(self, ParaTR):
+          """ Check if the seismic loading input is valid. 
+          
+            Parameters
+            ----------
+            ParaTR : dict
+                The seismic loading parameters table.
+
+            Returns
+            -------
+            bool
+                True if the seismic loading input is valid, False otherwise. """
+          
         #TODO check whether necessary data is available
           return True
 
       
       def set_seismic_loading(self, ParaTR=None, q_ort=3, gamma_m=2):
+          """ Set the seismic loading parameters.
+          
+            Parameters
+            ----------
+            ParaTR : dict, optional
+                The seismic loading parameters table. If None, it will be obtained based on the building's latitude and longitude.
+            q_ort : float, optional
+                Factor for out-of-plane seismic loading. Default is 3.
+            gamma_m : float, optional
+                Partial safety factor for material strength. Default is 2. """
+          
           if not None in (self.latitude, self.longitude) and ParaTR is None:
             ParaTR, _, _ = get_Parameters(self.latitude, self.longitude)
           else:
@@ -369,12 +492,25 @@ class EquivalentFrameModel:
           
 
       def get_derived_seismic_design_params(self):
+          """ Get the derived seismic design parameters.
+          
+            Returns
+            -------
+            derived_design_params : dict
+                The derived seismic design parameters.
+          """
           if self.derived_design_params is None:
             self.derive_and_set_seismic_loading_params()
-          return self.derived_design_params
+          derived_design_params = self.derived_design_params
+          return derived_design_params
 
       
       def derive_and_set_seismic_loading_params(self):
+          """ Derive and set the seismic loading parameters.
+          
+            This method calculates the derived seismic design parameters based on the seismic loading table (ParaTR)
+            and the building's characteristics, and stores them in the instance variable `self.derived_design_params`. """
+          
           ParaTR = self.ParaTR
           # print(ParaTR)
           Se_SLV_T, ag_SLV, S_geo, ADRS, tstep, func, TC = get_seismic_loading(
@@ -403,9 +539,25 @@ class EquivalentFrameModel:
 #--------------------------------------------------------------------------
 
       def add_floor(self, floor: Floor):
+          """ Add a floor to the building.
+
+            Parameters
+            ----------
+            floor : Floor
+                The floor object to be added. """
+          
           self.floors.append(floor)
 
       def add_wall_to_floor(self, floor_index: int, wall: 'FrameElement'):
+          """ Add a wall to a specific floor.
+
+            Parameters
+            ----------
+            floor_index : int
+                The index of the floor to which the wall will be added.
+            wall : FrameElement
+                The wall object to be added. """
+          
           if floor_index < 0 or floor_index >= len(self.floors):
               raise IndexError("Floor index out of range")
           self.floors[floor_index].add_wall(wall)
@@ -415,6 +567,22 @@ class EquivalentFrameModel:
 #--------------------------------------------------------------------------
 
       def run_linear_static_analysis(self, q=1.5, q_ort=3, gamma_m=2):
+          """ Run a linear static analysis for the building.
+
+            Parameters
+            ----------
+            q : float, optional
+                Behavior factor for in-plane walls (default is 1.5).
+            q_ort : float, optional
+                Behavior factor for out-of-plane walls (default is 3).
+            gamma_m : float, optional
+                Safety factor on the resistance side (default is 2).
+
+            Returns
+            -------
+            SFs : list of DataFrame
+                List of dataframes containing the safety factors for each floor. """
+          
           #-------
           # safety factor on the resistance side
           # gamma_m = 2
@@ -432,6 +600,28 @@ class EquivalentFrameModel:
 #--------------------------------------------------------------------------
 
       def get_force_displacement_capacity_curve(self, method="Ductility", algorithm="incr", mu=1.5):
+          """ Get the force-displacement capacity curve for the building.
+
+            Parameters
+            ----------
+            method : str, optional
+                Method to compute the ultimate displacement ("Ductility" or "Drift", default is "Ductility").
+            algorithm : str, optional
+                Incremental algorithm to use ("incr" or "add", default is "incr").
+            mu : float, optional
+                Ductility factor (default is 1.5).
+
+            Returns
+            -------
+            K : array
+                Stiffness values.
+            H : array
+                Force values.
+            v : array
+                Displacement values.
+            ind_state : array
+                State indicators for each step. """
+          
           n_floors, floor_id, _, alt_s, _, Ms, red_F = self.get_floor_data()
           D, X, S, V, alpha, G, NZ = self.get_wall_data()
           u_max = get_current_data(n_floors, D, mu, S, G, V, NZ, alpha, method)  # to be changed to my ultimate displacement function
@@ -454,10 +644,46 @@ class EquivalentFrameModel:
           return K, H, v, ind_state
 
       def get_bilinear_capacity_curve_coords(self, v, H):
+          """ Get the coordinates of the bilinear approximation of the capacity curve.
+
+            Parameters
+            ----------
+            v : array
+                Displacement values.
+            H : array
+                Force values.
+
+            Returns
+            -------
+            v_bl : array
+                Displacement values of the bilinear approximation.
+            H_bl : array
+                Force values of the bilinear approximation. """
+          
           v_bl, H_bl = get_bilinear_points_coord(v, H)
           return v_bl, H_bl
 
       def assess_seismic_performance_get_ADRS_params(self, K, H, v, H_bl, v_bl):
+          """ Assess the seismic performance and get ADRS parameters.
+
+            Parameters
+            ----------
+            K : array
+                Stiffness values.
+            H : array
+                Force values.
+            v : array
+                Displacement values.
+            H_bl : array
+                Force values of the bilinear approximation.
+            v_bl : array
+                Displacement values of the bilinear approximation.
+
+            Returns
+            -------
+            pushover_results : dict
+                Results of the pushover analysis including ADRS parameters. """
+          
           Masses = np.array([floor.weight for floor in reversed(self.floors)]) / 10000
           design_params = self.get_derived_seismic_design_params()
           pushover_results = compute_seismic_performance_assesment(
@@ -470,19 +696,84 @@ class EquivalentFrameModel:
           return pushover_results
 
       def get_global_vulnerability_metrics(self, v_bl, pushover_results):
+          """ Get the global vulnerability metrics.
+
+            Parameters
+            ----------
+            v_bl : array
+                Displacement values of the bilinear approximation.
+            pushover_results : dict
+                Results of the pushover analysis including ADRS parameters.
+
+            Returns
+            -------
+            df : DataFrame
+                DataFrame containing the global vulnerability metrics. """
+          
           # Put main metrics in dataframe
           df = get_global_vulnerability_metrics(v_bl, pushover_results)
           return df
       
       def plot_capacity_curve(self, v, H, v_bl, H_bl):
+          """ Plot the capacity curve.
+
+            Parameters
+            ----------
+            v : array
+                Displacement values.
+            H : array
+                Force values.
+            v_bl : array
+                Displacement values of the bilinear approximation.
+            H_bl : array
+                Force values of the bilinear approximation.
+
+            Returns
+            -------
+            fig : Figure
+                Figure object of the capacity curve. """
+          
           fig = plot_capacity_curve(v, H, v_bl, H_bl)
           return fig
       
       def plot_ADRS_demand_and_capacity(self, v_bl, pushover_results):
+           """ Plot the ADRS demand and capacity.
+
+            Parameters
+            ----------
+            v_bl : array
+                Displacement values of the bilinear approximation.
+            pushover_results : dict
+                Results of the pushover analysis including ADRS parameters.
+
+            Returns
+            -------
+            fig : Figure
+                Figure object of the ADRS demand and capacity plot. """
+           
            fig = plot_ADRS_demand_and_capacity(v_bl, pushover_results)
            return fig
 
       def get_floor_data(self):
+        """ Get the floor data including heights, masses, and reduction factors.
+
+            Returns
+            -------
+            N : int
+                Number of floors.
+            floorID : list
+                List of floor identifiers.
+            alt : array
+                Array of floor heights.
+            alt_s : array
+                Array of cumulative floor heights from top to bottom.
+            hTOT : float
+                Total height of the building.
+            Masses : array
+                Array of floor masses.
+            red_F : array
+                Array of reduction factors for each floor. """
+        
         N = len(self.floors)
         floorID = ["Floor{}".format(floor.id+1) for floor in self.floors]
         alt = np.array([floor.height for floor in reversed(self.floors)])
@@ -502,6 +793,25 @@ class EquivalentFrameModel:
     
 
       def get_wall_data(self):
+        """ Get the wall data including dimensions, positions, material properties, and other relevant parameters.
+
+            Returns
+            -------
+            D : list
+                List of arrays containing wall dimensions for each floor.
+            X : list
+                List of arrays containing wall positions for each floor.
+            S : list
+                List of wall stress values for each floor.
+            V : list
+                List of wall heights for each floor.
+            alpha : list
+                List of wall orientation angles for each floor.
+            G : list
+                List of arrays containing wall material properties for each floor.
+            NZ : list
+                List of the number of walls for each floor. """
+        
         N = len(self.floors)
         D = []
         X = []
@@ -524,6 +834,13 @@ class EquivalentFrameModel:
         return D, X, S, V, alpha, G, NZ
 
       def get_wall_initial_properties(self):
+          """ Get the initial properties of walls for each floor.
+
+            Returns
+            -------
+            prop_dfs : dict
+                Dictionary of DataFrames containing wall properties for each floor. """
+          
           # initiate list of dataframes for the different floors
           prop_dfs = {}
           # Loop over floors from top to bottom
@@ -570,7 +887,24 @@ class EquivalentFrameModel:
 #--------------------------------------------------------------------------
 
       def plot_wall_safety_factors(self, SFs, direction, floor_num, type: str):
-        """Plot safety factors for each wall on a specific floor using Plotly."""
+        """ Plot safety factors for each wall on a specific floor using Plotly.
+            
+            Parameters
+            ----------
+            SFs : dict
+                Dictionary containing safety factors for each floor and wall.
+            direction : str
+                Direction of the safety factors ('X' or 'Y').
+            floor_num : int
+                Floor number for which to plot the safety factors.
+            type : str
+                Type of safety factor ('Shear', 'Bending in plane', 'Bending out of plane').
+
+            Returns
+            -------
+            fig : Figure
+                Figure object of the safety factors plot. """
+        
         mapping_var = {
             'Shear': 'SF_V',
             'Bending in plane': 'SF_M',
@@ -588,7 +922,22 @@ class EquivalentFrameModel:
         return fig
       
       def plot_failing_walls(self, failing_walls, direction, floor_num):
-        """Plot failing walls for each wall on a specific floor using Plotly."""
+        """ Plot failing walls for each wall on a specific floor using Plotly.
+            
+            Parameters
+            ----------
+            failing_walls : dict
+                Dictionary containing failing walls for each floor and direction.
+            direction : str
+                Direction of the failing walls ('X' or 'Y').
+            floor_num : int
+                Floor number for which to plot the failing walls.
+
+            Returns
+            -------
+            fig : Figure
+                Figure object of the failing walls plot. """
+        
         if direction == 'X':
             failing_indices = failing_walls[0]
         else:
@@ -606,7 +955,18 @@ class EquivalentFrameModel:
         return fig
 
       def plot_floor_layout(self, floor_num):
-        """Plot the basic structural wall layout for a specific floor using Plotly."""
+        """ Plot the basic structural wall layout for a specific floor using Plotly.
+
+            Parameters
+            ----------
+            floor_num : int
+                Floor number for which to plot the layout.
+
+            Returns
+            -------
+            fig : Figure
+                Figure object of the floor layout plot. """
+        
         bounds = self._plot_bounds
         # floor_num is 1-indexed, so floor_idx = floor_num - 1
         fig = self.floors[floor_num].plot_2d_layout(
@@ -615,7 +975,20 @@ class EquivalentFrameModel:
         return fig
 
       def plot_wall_type_layout(self, floor_num, indices):
-        """Plot the basic structural wall layout for a specific floor using Plotly."""
+        """ Plot the basic structural wall layout for a specific floor using Plotly.
+
+            Parameters
+            ----------
+            floor_num : int
+                Floor number for which to plot the layout.
+            indices : list of int
+                List of wall indices to highlight or plot.
+
+            Returns
+            -------
+            fig : Figure
+                Figure object of the wall type layout plot. """
+        
         bounds = self._plot_bounds
         # floor_num is 1-indexed, so floor_idx = floor_num - 1
         fig = self.floors[floor_num].plot_wall_type_layout(
@@ -626,50 +999,15 @@ class EquivalentFrameModel:
 
       def calculate_eigenfrequencies(self):
         """ Calculate eigenfrequencies and eigenvectors for the building model.
-
-            Parameters
-            ----------
-            D : list of np.ndarray
-                List of wall dimensions for each floor.
-                
-            X : list of np.ndarray
-                List of wall center coordinates for each floor.
-                
-            S : list of np.ndarray
-                List of wall strengths for each floor.
-                
-            V : list of np.ndarray
-                List of wall volumes for each floor.
-                
-            G : list of np.ndarray
-                List of wall material properties for each floor.
-                
-            N : int
-                Number of floors.
-                
-            NZ : list of int
-                List of number of walls per floor.
-                
-            Masses : np.ndarray
-                Array of masses for each floor.
-                
-            alpha : list of np.ndarray
-                List of wall orientations for each floor.
                 
             Returns
             -------
-            eigenvalues_X : np.ndarray
-                Eigenvalues for X direction.
+            frequencies_X_damp : np.ndarray
+                Eigenfrequencies for X direction with damping.
                 
-            eigenvectors_X : np.ndarray
-                Eigenvectors for X direction.
-                
-            eigenvalues_Y : np.ndarray
-                Eigenvalues for Y direction.
-                
-            eigenvectors_Y : np.ndarray
-                Eigenvectors for Y direction. """
-            
+            frequencies_Y_damp : np.ndarray
+                Eigenfrequencies for Y direction with damping. """
+                    
         D, _, _, V, alpha, G, NZ = self.get_wall_data()
         N, _, _, _, _, Masses, _ = self.get_floor_data()
 
@@ -751,4 +1089,5 @@ class EquivalentFrameModel:
 #--------------------------------------------------------------------------
 
       def __repr__(self):
+          """ String representation of the EquivalentFrame object. """
           return f"EquivalentFrame(floors={self.num_floors})"

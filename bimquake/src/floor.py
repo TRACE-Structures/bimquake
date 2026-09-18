@@ -13,7 +13,37 @@ from .plot_utils import(
 
 @dataclass
 class Floor:
+    """ Class representing a floor in a building model.
+    
+        Attributes
+        ----------
+        id : int
+            Unique identifier for the floor.
+        height : float
+            Height of the floor.
+        weight : float
+            Weight of the floor.
+        walls : List[FrameElement]
+            List of walls on the floor.
+        floor_alt : float
+            Altitude of the floor.
+        acc_rel : float
+            Relative seismic acceleration in the main direction.
+        acc_rel_ort : float
+            Relative seismic acceleration in the orthogonal direction. """
+    
     def __init__(self, id:int, height: float, weight: float):
+        """ Initialize a Floor object with the given id, height, and weight.
+
+            Parameters
+            ----------
+            id : int
+                Unique identifier for the floor.
+            height : float
+                Height of the floor.
+            weight : float
+                Weight of the floor. """
+        
         self.id = id
         self.height = height
         self.weight = weight
@@ -28,6 +58,13 @@ class Floor:
 #-------------------------------------------------------------------------------
     @property
     def walls_geometric_properties(self):
+      """ Return a DataFrame containing geometric properties of all walls on this floor. 
+
+          Returns
+          -------
+          records : pd.DataFrame
+              DataFrame with columns: wall_id, Cx, Cy, L, w, alpha. """
+      
       records = []
       for W_i in self.walls:
           records.append({
@@ -43,12 +80,28 @@ class Floor:
 #-------------------------------------------------------------------------------
 
     def add_wall(self, wall: 'FrameElement'):
+        """ Add a wall to the floor.
+
+            Parameters
+            ----------
+            wall : FrameElement
+                The wall to be added to the floor. """
+        
         self.walls.append(wall)
 
     def __repr__(self):
+        """ String representation of the Floor object. """
+
         return f"Floor(height={self.height}, walls={len(self.walls)})"
 
     def set_altitude(self, floor_alt:float):
+        """ Set the altitude of the floor.
+
+            Parameters
+            ----------
+            floor_alt : float
+                Altitude of the floor. """
+        
         self.floor_alt = floor_alt
 
 
@@ -57,6 +110,14 @@ class Floor:
 #--------------------------------------------------------------------------
 
     def set_relative_accelerations(self, seismic_params:dict, H:float):
+        """ Set the relative seismic accelerations acting on the floor.
+
+            Parameters
+            ----------
+            seismic_params : dict
+                Dictionary containing seismic parameters.
+            H : float
+                Total height of the building. """
 
         h = self.height
         H_f = self.floor_alt
@@ -79,10 +140,22 @@ class Floor:
 #--------------------------------------------------------------------------
 
     def compute_wall_safety_factors(self, q, q_ort, gamma_m) -> pd.DataFrame:
-        """
-        Compute safety factors for all walls on this floor and return a DataFrame.
-        Each row is a wall, columns are safety factors.
-        """
+        """ Compute safety factors for all walls on this floor and return a DataFrame. Each row is a wall, columns are safety factors.
+
+            Parameters
+            ----------
+            q : float
+                Behavior factor in the main direction.
+            q_ort : float
+                Behavior factor in the orthogonal direction.
+            gamma_m : float
+                Partial safety factor for the material.
+
+            Returns
+            -------
+            df : pd.DataFrame
+                DataFrame containing safety factors for all walls on this floor. """
+        
         records = []
 
         for W_i in self.walls:
@@ -104,9 +177,16 @@ class Floor:
 #--------------------------------------------------------------------------
 
     def set_wall_limit_displacement(self, mu=1.5, drift_lim=0.004, method="Ductility"):
-        """
-        Compute ductility or drift limits for all walls on the floor.
-        """
+        """ Compute ductility or drift limits for all walls on the floor.
+            
+            Parameters
+            ----------
+            mu : float
+                Ductility factor.
+            drift_lim : float
+                Drift limit.
+            method : str
+                Method to compute wall limit displacement. Options are "Ductility" or "Drift". """
 
         for W_i in self.walls:
             if method == "Ductility":
@@ -116,10 +196,13 @@ class Floor:
 
 
     def get_wall_properties(self):
-        """
-        Compute floor-level properties: KX, KY, center of mass, center of rigidity.
-        Returns dictionary of values needed for pushover.
-        """
+        """ Compute floor-level properties: KX, KY, center of mass, center of rigidity. Returns dictionary of values needed for pushover.
+
+            Returns
+            -------
+            records : pd.DataFrame
+                DataFrame containing properties of all walls on this floor. """
+        
         records = []
         for W_i in self.walls:
             k_i, H_Rd_i = W_i.get_stiffness_and_resistance()
@@ -137,6 +220,13 @@ class Floor:
         return pd.DataFrame(records)
 
     def compute_redistribution_coefficients(self):
+        """ Compute redistribution coefficients for the walls on this floor.
+
+            Returns
+            -------
+            df : pd.DataFrame
+                DataFrame containing the redistribution coefficients for each wall. """
+        
         df = self.get_wall_properties()
         # Compute coordinate of center of mass
         SX = (df["sigma"] * df["A"] * df["Cx"]).sum()
@@ -185,22 +275,66 @@ class Floor:
 #--------------------------------------------------------------------------
 
     def plot_2d_layout(self, bounds):
+        """ Plot the 2D layout of the walls on this floor.
+
+            Parameters
+            ----------
+            bounds : tuple
+                The bounds of the plot.
+
+            Returns
+            -------
+            fig : plotly.graph_objects.Figure
+                The plotly figure object representing the 2D layout. """
+        
         wall_props = self.walls_geometric_properties
         color = np.where((wall_props["alpha"] < 45) | (wall_props["alpha"] >= 135), "#00649e", "#ff6600")
         hoover_text = np.where((wall_props["alpha"] < 45) | (wall_props["alpha"] >= 135), "shear wall in dir X", "shear wall in dir Y")
         floor_id = self.id
         title = f'Shear Walls - Floor {floor_id + 1}'
-        return plot_colored_layout(wall_props, color, hoover_text, bounds, title=title)
+        fig = plot_colored_layout(wall_props, color, hoover_text, bounds, title=title)
+        return fig
 
     def plot_wall_type_layout(self, bounds, wall_type):
+        """ Plot the layout of wall types on this floor.
+
+            Parameters
+            ----------
+            bounds : tuple
+                The bounds of the plot.
+            wall_type : array-like
+                Array indicating the type of each wall.
+
+            Returns
+            -------
+            fig : plotly.graph_objects.Figure
+                The plotly figure object representing the wall type layout. """
+        
         wall_props = self.walls_geometric_properties
         color = np.where(wall_type == 1,"#ff6600", "#00649e")
         hoover_text = np.where(wall_type == 1, "masonry wall", "stone wall")
         floor_id = self.id
         title = f'Wall types - Floor {floor_id + 1}'
-        return plot_colored_layout(wall_props, color, hoover_text, bounds, title=title)
+        fig = plot_colored_layout(wall_props, color, hoover_text, bounds, title=title)
+        return fig
     
     def plot_failing_walls(self, bounds, failing_walls, direction):
+        """ Plot the layout of failing walls on this floor.
+
+            Parameters
+            ----------
+            bounds : tuple
+                The bounds of the plot.
+            failing_walls : array-like
+                Array indicating which walls are failing.
+            direction : str
+                The direction of the failure.
+
+            Returns
+            -------
+            fig : plotly.graph_objects.Figure
+                The plotly figure object representing the failing walls layout. """
+        
         wall_props = self.walls_geometric_properties
         status = np.array([False]*len(wall_props))
         if len(failing_walls) > 0:
@@ -212,10 +346,29 @@ class Floor:
         title = f"Direction {direction} - Floor {floor_id + 1} - Failure"
         # status = wall_props.index.isin(f_set).map({True: "Failing", False: "Not failing"})
         # wall_props, colors, hover_texts, bounds, title=None
-        return plot_colored_layout(wall_props, colors, hover_texts, bounds, title=title)
+        fig = plot_colored_layout(wall_props, colors, hover_texts, bounds, title=title)
+        return fig
 
 
     def plot_safety_factors(self, bounds, sfs, direction, type):
+        """ Plot the layout of safety factors for walls on this floor.
+
+            Parameters
+            ----------
+            bounds : tuple
+                The bounds of the plot.
+            sfs : pandas.Series
+                Series containing the safety factors for each wall.
+            direction : str
+                The direction of the analysis.
+            type : str
+                The type of safety factor.
+
+            Returns
+            -------
+            fig : plotly.graph_objects.Figure
+                The plotly figure object representing the safety factors layout. """
+        
         wall_props = self.walls_geometric_properties
         floor_id = self.id
         title = f"Safety factors for Direction {direction} - Floor {floor_id + 1} - {type}"
