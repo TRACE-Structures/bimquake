@@ -732,8 +732,14 @@ class Building(IfcObjectSet):
                 #record["Load at top SLE [N/m]"] = compute_limit_state_values(g1_j, g2_j, q_j, limit_state = "SLE")
                 sigma_ULS = WP_i.stress["half-height"]["ULS"]
                 sigma_SLS = WP_i.stress["half-height"]["SLS"]
-                record["σ {ULS} [N/mm²]"] = sigma_ULS/1e6 if sigma_ULS is not None else None
-                record["σ [N/mm²]"] = sigma_SLS/1e6 if sigma_SLS is not None else None
+                record["σ ULS at mid-height [N/mm²]"] = sigma_ULS/1e6 if sigma_ULS is not None else None
+                record["σ SLS at mid-height [N/mm²]"] = sigma_SLS/1e6 if sigma_SLS is not None else None
+
+                sigma_ULS_bottom =  WP_i.stress["bottom"]["ULS"]
+                sigma_SLS_bottom =  WP_i.stress["bottom"]["SLS"]
+                record["σ ULS at bottom [N/mm2]"] = sigma_ULS_bottom/1e6 if sigma_ULS_bottom is not None else None
+                record["σ SLS at bottom [N/mm2]"] = sigma_SLS_bottom/1e6 if sigma_SLS_bottom is not None else None
+
                 # Wall elastic moduli
                 record["E [N/mm²]"] = W_j.properties.E / 1e6 if W_j.properties.E is not None else None
                 # wall's ShearModulus
@@ -751,7 +757,7 @@ class Building(IfcObjectSet):
           df = pd.DataFrame(records).sort_values("Wall")
           if not detailed:
             df = df[["Wall", "L [m]", "w [m]", "H [m]", "Cx [m]", "Cy [m]", 
-            "α", "σ [N/mm²]", "τ [N/mm²]", "fₘ [N/mm²]",
+            "α", "σ ULS at top [N/mm2]", "σ SLS at top [N/mm2]", "σ ULS at mid-height [N/mm²]", "σ SLS at mid-height [N/mm²]", "σ ULS at bottom [N/mm2]", "σ SLS at bottom [N/mm2]", "τ [N/mm²]", "fₘ [N/mm²]",
             "γ [kN/m³]", "E [N/mm²]", "G [N/mm²]"]]
           prop_dfs[floor] = df
 

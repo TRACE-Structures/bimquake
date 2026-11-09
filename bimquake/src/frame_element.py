@@ -90,7 +90,7 @@ class StressState:
         
     top: Dict[str, float] = field(default_factory=dict)   #str: expected options "ULS" or "SLS"
     midheight: Dict[str, float] = field(default_factory=dict)  #str: expected options "ULS" or "SLS"
-    #bottom: float
+    bottom: Dict[str, float] = field(default_factory=dict)  #str: expected options "ULS" or "SLS"
 
 
 ###############################################################################
@@ -244,11 +244,26 @@ class FrameElement:
 # Methods for linear static analysis
 ###############################################################################
 
+    def get_stress(self, stress_location="midheight", limit_state="SLS"):
+        """ Return the stress at the requested location.
+        Parameters 
+        ---------- 
+        stress_location : str
+            "midheight" or "bottom"
+        limit_state : str
+            "SLS" or "ULS"
+        """
+        if stress_location not in ("midheight", "bottom"):
+            raise ValueError(
+                "stress_location must be either 'midheight' or 'bottom'"
+            )
+        return getattr(self.stress, stress_location)[limit_state]
+
     #--------------------------------------------------------------------------
     #  Compute resistance
     #--------------------------------------------------------------------------
 
-    def compute_resistances(self, gamma_m: float=2):
+    def compute_resistances(self, gamma_m: float=2, stress_location: str="midheight", limit_state: str="SLS"):
         """ Compute shear and bending resistances for this wall.
         
             Parameter
@@ -267,7 +282,9 @@ class FrameElement:
         
         # gamma_m is the safety factor (resistance is computed resistance divided by gamma_m)
         # stress in the midsection of the wall
-        sigma = self.stress.midheight['SLS']        #????SLE?
+        sigma = self.get_stress(stress_location, limit_state)        #????SLE?
+
+        # sigma = self.stress.midheight['SLS']        #????SLE?
         f_m = self.material.f_m
         tau = self.material.tau
         L, w = self.geometry.L, self.geometry.w
@@ -290,7 +307,7 @@ class FrameElement:
     #  Compute safety factors
     #--------------------------------------------------------------------------
 
-    def compute_safety_factors(self, acc_rel: float, acc_rel_ort:float):
+    def compute_safety_factors(self, acc_rel: float, acc_rel_ort:float, stress_location: str="midheight", limit_state: str="SLS"):
         """ Compute safety indexes for this wall using its own properties.
         
             Parameters
@@ -304,8 +321,9 @@ class FrameElement:
             -------
             results : dict
                 Dictionary containing the safety factors for the wall in both in-plane and out-of-plane directions. """
-        
-        sigma = self.stress.midheight['SLS']
+        sigma = self.get_stress(stress_location, limit_state)        #????SLE?
+
+        # sigma = self.stress.midheight['SLS']
         gamma = self.material.gamma
 
         # Retrieve gometric properties
@@ -313,7 +331,7 @@ class FrameElement:
         alpha = self.geometry.alpha
        
         # Resistances
-        V_Rd, M_Rd, M_Rd_ort = self.compute_resistances()
+        V_Rd, M_Rd, M_Rd_ort = self.compute_resistances(stress_location=stress_location, limit_state=limit_state)
 
         # Demands
         T_Ed = acc_rel * sigma * L * w
@@ -368,7 +386,7 @@ class FrameElement:
        
 
 
-    def set_ultimate_displacement_based_on_ductility_limit(self, mu=1.5):          # THIS could be directly computed from kx/H_rdx and k_y/H_rdy, isn't it?
+    def set_ultimate_displacement_based_on_ductility_limit(self, mu=1.5, stress_location: str="midheight", limit_state: str="SLS"):          # THIS could be directly computed from kx/H_rdx and k_y/H_rdy, isn't it?
         """ Set hoirzontal displacement limit of the wall based on ductility (limiting delta_ult/delta_elastic) limit.
         
             Parameters
@@ -386,7 +404,9 @@ class FrameElement:
         h = self.geometry.h
         alpha = self.geometry.alpha
 
-        sigma = self.stress.midheight["SLS"]
+        sigma = self.get_stress(stress_location, limit_state)        #????SLE?
+
+        # sigma = self.stress.midheight["SLS"]
 
         tau = self.material.tau
         E = self.material.E
@@ -481,7 +501,7 @@ class FrameElement:
 #  Set-get stiffness values
 #--------------------------------------------------------------------------
 
-    def set_stiffness_and_resistance(self):
+    def set_stiffness_and_resistance(self, stress_location: str="midheight", limit_state: str="SLS"):
         """ Compute wall stiffness in 'X' or 'Y' direction for pushover analysis.
             
             Returns
@@ -502,7 +522,9 @@ class FrameElement:
         G = self.material.G 
         E = self.material.E
 
-        sigma = self.stress.midheight["SLS"]
+        sigma = self.get_stress(stress_location, limit_state)        #????SLE?
+
+        # sigma = self.stress.midheight["SLS"]
 
         K0 = G * L * w / (1.2 * h * (1 + G/(1.2*E)*(h/L)**2))
 
@@ -517,7 +539,7 @@ class FrameElement:
         self.H_Rd = np.array([H_Rd_x, H_Rd_y])
         return self.k, self.H_Rd
 
-    def get_stiffness_and_resistance(self):
+    def get_stiffness_and_resistance(self, stress_location: str="midheight", limit_state: str="SLS"):
         """ Get wall stiffness and ultimate horizontal resistance in x and y directions.
 
             Returns
@@ -530,5 +552,5 @@ class FrameElement:
         k = self.k
         H_Rd = self.H_Rd
         if k is None or H_Rd is None:
-          k, H_Rd = self.set_stiffness_and_resistance()
+          k, H_Rd = self.set_stiffness_and_resistance(stress_location=stress_location, limit_state=limit_state)
         return k, H_Rd

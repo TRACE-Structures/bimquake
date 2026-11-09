@@ -709,6 +709,13 @@ class Wall(IfcObject):
                   "ULS": compute_limit_state_values(s_g1, s_g2, s_q, limit_state = "ULS"),
                   "SLS": compute_limit_state_values(s_g1, s_g2, s_q, limit_state = "SLS")}
 
+                G1 = G1 + 9.81 * (V_i/2) * rho
+                s_g1 = G1/(w_i*L_i)
+
+                sigma["bottom"] = {
+                  "ULS": compute_limit_state_values(s_g1, s_g2, s_q, limit_state = "ULS"),
+                  "SLS": compute_limit_state_values(s_g1, s_g2, s_q, limit_state = "SLS")}
+
                 # Set stress values
                 WP_i.set_stress_values(sigma)
     #---------------------------------------------------------------------

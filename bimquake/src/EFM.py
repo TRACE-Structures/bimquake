@@ -116,7 +116,8 @@ def create_equivalent_frame_model_from_dataframes(
             # Stress state: 
             stress = StressState(
                 top={"ULS": None, "SLS": None},
-                midheight={"ULS": None, "SLS": sigma}
+                midheight={"ULS": None, "SLS": sigma},
+                bottom={"ULS": None, "SLS": None}
             )
 
             # Create the frame element
@@ -566,7 +567,7 @@ class EquivalentFrameModel:
 #  Run Linear Static Analysis
 #--------------------------------------------------------------------------
 
-      def run_linear_static_analysis(self, q=1.5, q_ort=3, gamma_m=2):
+      def run_linear_static_analysis(self, q=1.5, q_ort=3, gamma_m=2, stress_location: str="midheight", limit_state: str="SLS"):
           """ Run a linear static analysis for the building.
 
             Parameters
@@ -590,7 +591,7 @@ class EquivalentFrameModel:
           # Initiate list of dataframes with safety factors 
           SFs = []
           for j, floor in enumerate(self.floors):
-            SFs_j = floor.compute_wall_safety_factors(q, q_ort, gamma_m)
+            SFs_j = floor.compute_wall_safety_factors(q, q_ort, gamma_m, stress_location=stress_location, limit_state=limit_state)
             SFs.append(SFs_j)
           return SFs
 
@@ -599,7 +600,7 @@ class EquivalentFrameModel:
 #  Run Pushover Analysis
 #--------------------------------------------------------------------------
 
-      def get_force_displacement_capacity_curve(self, method="Ductility", algorithm="incr", mu=1.5):
+      def get_force_displacement_capacity_curve(self, method="Ductility", algorithm="incr", mu=1.5, stress_location="midheight", limit_state="SLS"):
           """ Get the force-displacement capacity curve for the building.
 
             Parameters
@@ -623,7 +624,7 @@ class EquivalentFrameModel:
                 State indicators for each step. """
           
           n_floors, floor_id, _, alt_s, _, Ms, red_F = self.get_floor_data()
-          D, X, S, V, alpha, G, NZ = self.get_wall_data()
+          D, X, S, V, alpha, G, NZ = self.get_wall_data(stress_location=stress_location, limit_state=limit_state)
           u_max = get_current_data(n_floors, D, mu, S, G, V, NZ, alpha, method)  # to be changed to my ultimate displacement function
           passo = 5
           incr = 1.001
@@ -792,7 +793,7 @@ class EquivalentFrameModel:
         return N, floorID, alt, alt_s, hTOT, Masses, red_F
     
 
-      def get_wall_data(self):
+      def get_wall_data(self, stress_location="midheight", limit_state="SLS"):
         """ Get the wall data including dimensions, positions, material properties, and other relevant parameters.
 
             Returns
@@ -821,7 +822,7 @@ class EquivalentFrameModel:
         G = []
         NZ = []
 
-        df = self.get_wall_initial_properties()
+        df = self.get_wall_initial_properties(stress_location=stress_location, limit_state=limit_state)
         for k in range(N):
             D.append(np.array([df[N-k-1]['L [m]'], df[N-k-1]['w [m]']]).T)
             X.append(np.array([df[N-k-1]['Cx [m]'], df[N-k-1]['Cy [m]']]).T)
@@ -833,7 +834,7 @@ class EquivalentFrameModel:
             NZ.append(len(D[k]))
         return D, X, S, V, alpha, G, NZ
 
-      def get_wall_initial_properties(self):
+      def get_wall_initial_properties(self, stress_location="midheight", limit_state="SLS"):
           """ Get the initial properties of walls for each floor.
 
             Returns
@@ -858,8 +859,9 @@ class EquivalentFrameModel:
               record["Cy [m]"] = W_j.geometry.Cy
               record["α"] = W_j.geometry.alpha
               record["γ [kN/m³]"] = W_j.material.gamma /1e3
-              sigma_SLS = W_j.stress.midheight["SLS"]
-              record["σ [N/mm²]"] = sigma_SLS/1e6 if sigma_SLS is not None else None
+              sigma = W_j.get_stress(stress_location=stress_location, limit_state=limit_state)
+            #   sigma_SLS = W_j.stress.midheight["SLS"]
+              record["σ [N/mm²]"] = sigma/1e6 if sigma is not None else None
               # Wall elastic moduli
               record["E [N/mm²]"] = W_j.material.E / 1e6 if W_j.material.E is not None else None
               # wall's ShearModulus
@@ -997,7 +999,7 @@ class EquivalentFrameModel:
         return fig
       
 
-      def calculate_eigenfrequencies(self):
+      def calculate_eigenfrequencies(self, stress_location="midheight", limit_state="SLS"):
         """ Calculate eigenfrequencies and eigenvectors for the building model.
                 
             Returns
@@ -1008,7 +1010,7 @@ class EquivalentFrameModel:
             frequencies_Y_damp : np.ndarray
                 Eigenfrequencies for Y direction with damping. """
                     
-        D, _, _, V, alpha, G, NZ = self.get_wall_data()
+        D, _, _, V, alpha, G, NZ = self.get_wall_data(stress_location=stress_location, limit_state=limit_state)
         N, _, _, _, _, Masses, _ = self.get_floor_data()
 
             

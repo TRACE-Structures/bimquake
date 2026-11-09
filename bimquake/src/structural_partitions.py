@@ -198,7 +198,7 @@ class WallPartition(StructuralUnit):
             -------
             stress_state : StressState
                 The stress state of this wall partition. """
-        stress_state = StressState(top = self.stress["top"], midheight=self.stress["half-height"])
+        stress_state = StressState(top = self.stress["top"], midheight=self.stress["half-height"], bottom=self.stress["bottom"])
         return stress_state
 
     def add_linked_struct(self, linked_struct_points):

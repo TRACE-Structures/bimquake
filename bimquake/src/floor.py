@@ -139,7 +139,7 @@ class Floor:
 #  Compute wall safety factors
 #--------------------------------------------------------------------------
 
-    def compute_wall_safety_factors(self, q, q_ort, gamma_m) -> pd.DataFrame:
+    def compute_wall_safety_factors(self, q, q_ort, gamma_m, stress_location: str="midheight", limit_state: str="SLS") -> pd.DataFrame:
         """ Compute safety factors for all walls on this floor and return a DataFrame. Each row is a wall, columns are safety factors.
 
             Parameters
@@ -162,6 +162,8 @@ class Floor:
             factors = W_i.compute_safety_factors(
                 acc_rel = self.acc_rel / q,
                 acc_rel_ort = self.acc_rel_ort / q_ort,
+                stress_location = stress_location,
+                limit_state = limit_state
             )
 
             # Prepare a row: wall_id + all safety factors
@@ -176,7 +178,7 @@ class Floor:
 #  Compute wall ductility limits
 #--------------------------------------------------------------------------
 
-    def set_wall_limit_displacement(self, mu=1.5, drift_lim=0.004, method="Ductility"):
+    def set_wall_limit_displacement(self, mu=1.5, drift_lim=0.004, method="Ductility", stress_location: str="midheight", limit_state: str="SLS"):
         """ Compute ductility or drift limits for all walls on the floor.
             
             Parameters
@@ -190,12 +192,12 @@ class Floor:
 
         for W_i in self.walls:
             if method == "Ductility":
-              W_i.set_ultimate_displacement_based_on_ductility_limit(mu)
+              W_i.set_ultimate_displacement_based_on_ductility_limit(mu, stress_location=stress_location, limit_state=limit_state)
             else:
-              W_i.set_ultimate_displacement_based_on_ductility_limit(drift_lim)
+              W_i.set_ultimate_displacement_based_on_ductility_limit(drift_lim, stress_location=stress_location, limit_state=limit_state)
 
 
-    def get_wall_properties(self):
+    def get_wall_properties(self, stress_location: str="midheight", limit_state: str="SLS"):
         """ Compute floor-level properties: KX, KY, center of mass, center of rigidity. Returns dictionary of values needed for pushover.
 
             Returns
@@ -205,7 +207,7 @@ class Floor:
         
         records = []
         for W_i in self.walls:
-            k_i, H_Rd_i = W_i.get_stiffness_and_resistance()
+            k_i, H_Rd_i = W_i.get_stiffness_and_resistance(stress_location=stress_location, limit_state=limit_state)
             records.append({
               "wall_id": W_i.id,
               "kx": k_i[0],      #stiffness in dir x
@@ -215,11 +217,11 @@ class Floor:
               "Cx": W_i.geometry.Cx,  # X coord of center of wall
               "Cy": W_i.geometry.Cy,  # Y coord of center of wall
               "A": W_i.geometry.L * W_i.geometry.w,  # Area of wall cross section
-              "sigma": W_i.stress.midheight["SLS"]   # stress SLE limit state
+              "sigma": W_i.get_stress(stress_location=stress_location, limit_state=limit_state)   # stress SLE limit state
             })
         return pd.DataFrame(records)
 
-    def compute_redistribution_coefficients(self):
+    def compute_redistribution_coefficients(self, stress_location: str="midheight", limit_state: str="SLS"):
         """ Compute redistribution coefficients for the walls on this floor.
 
             Returns
@@ -227,7 +229,7 @@ class Floor:
             df : pd.DataFrame
                 DataFrame containing the redistribution coefficients for each wall. """
         
-        df = self.get_wall_properties()
+        df = self.get_wall_properties(stress_location=stress_location, limit_state=limit_state)
         # Compute coordinate of center of mass
         SX = (df["sigma"] * df["A"] * df["Cx"]).sum()
         SY = (df["sigma"] * df["A"] * df["Cy"]).sum()
